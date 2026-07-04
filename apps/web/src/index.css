@@ -423,21 +423,53 @@
   width: 56px;
   height: 4px;
   border-radius: 9999px;
-  background-color: color-mix(in srgb, var(--foreground) 20%, transparent);
+  background: color-mix(in srgb, var(--foreground) 20%, transparent);
   transition:
     width var(--pill-resize-dur-collapse) var(--pill-resize-ease),
     height var(--pill-resize-dur-collapse) var(--pill-resize-ease),
-    background-color var(--pill-resize-dur-collapse) var(--pill-resize-ease),
+    background var(--pill-resize-dur-collapse) var(--pill-resize-ease),
     box-shadow var(--pill-resize-dur-collapse) var(--pill-resize-ease);
   will-change: width, height;
 }
 
+/* Premium floating-object treatment: a top-to-bottom sheen (not flat fill),
+   an inner top highlight + bottom shade for a subtle bevel, a hairline ring
+   in place of a solid border, and a layered ambient + contact shadow — this
+   pill is the only visible surface on a transparent window, so it has to
+   read as a well-made object over arbitrary desktop content, not a page card. */
 .t-pill[data-expanded="true"] {
   width: 240px;
   height: 44px;
-  background-color: var(--popover);
-  box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.35);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--popover) 100%, white 10%) 0%,
+    var(--popover) 55%,
+    color-mix(in srgb, var(--popover) 100%, black 4%) 100%
+  );
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, white 40%, transparent) inset,
+    0 -1px 0 0 color-mix(in srgb, black 6%, transparent) inset,
+    0 0 0 1px color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 1px 2px color-mix(in srgb, black 10%, transparent),
+    0 8px 16px -6px color-mix(in srgb, black 24%, transparent),
+    0 20px 40px -12px color-mix(in srgb, black 32%, transparent);
   transition-duration: var(--pill-resize-dur-expand);
+}
+
+.dark .t-pill[data-expanded="true"] {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--popover) 100%, white 6%) 0%,
+    var(--popover) 55%,
+    color-mix(in srgb, var(--popover) 100%, black 12%) 100%
+  );
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 -1px 0 0 color-mix(in srgb, black 30%, transparent) inset,
+    0 0 0 1px color-mix(in srgb, white 10%, transparent),
+    0 1px 2px color-mix(in srgb, black 40%, transparent),
+    0 8px 20px -6px color-mix(in srgb, black 55%, transparent),
+    0 24px 48px -12px color-mix(in srgb, black 65%, transparent);
 }
 
 .t-pill-content {

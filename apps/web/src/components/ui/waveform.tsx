@@ -7,40 +7,27 @@ export interface WaveformProps extends Omit<React.ComponentProps<"div">, "onErro
   barHeight?: number
   barGap?: number
   barRadius?: number
-  barColorStart?: string
-  barColorEnd?: string
+  barColor?: string
+  /** Floor alpha for a silent bar — keeps quiet stretches faintly present
+   *  instead of disappearing, restrained rather than colorful. */
+  minOpacity?: number
   fadeEdges?: boolean
   fadeWidth?: number
   height?: string | number
   onBarClick?: (index: number, value: number) => void
 }
 
-function lerpColor(from: string, to: string, t: number): string {
-  const a = parseInt(from.slice(1), 16)
-  const b = parseInt(to.slice(1), 16)
-  const ar = (a >> 16) & 255,
-    ag = (a >> 8) & 255,
-    ab = a & 255
-  const br = (b >> 16) & 255,
-    bg = (b >> 8) & 255,
-    bb = b & 255
-  const r = Math.round(ar + (br - ar) * t)
-  const g = Math.round(ag + (bg - ag) * t)
-  const bl = Math.round(ab + (bb - ab) * t)
-  return `rgb(${r} ${g} ${bl})`
-}
-
-/** Base canvas bar-chart renderer — draws `data` (each 0-1) as vertical bars,
- *  colored on a gradient that brightens with amplitude so a livelier signal
- *  reads as more vivid, not just taller. */
+/** Base canvas bar-chart renderer — draws `data` (each 0-1) as vertical bars
+ *  in a single monochrome color, fading each bar's opacity with its own
+ *  amplitude so a livelier signal reads as more present, not more colorful. */
 function Waveform({
   data,
   barWidth = 4,
   barHeight = 4,
   barGap = 2,
   barRadius = 2,
-  barColorStart = "#22d3ee",
-  barColorEnd = "#a855f7",
+  barColor,
+  minOpacity = 0.18,
   fadeEdges = true,
   fadeWidth = 24,
   height = 128,
@@ -76,13 +63,15 @@ function Waveform({
       const maxBarHeight = h * 0.92
 
       ctx.clearRect(0, 0, w, h)
+      const color = barColor ?? getComputedStyle(canvas).color
 
       for (let i = 0; i < data.length; i++) {
         const amp = Math.max(0, Math.min(1, data[i] ?? 0))
         const barH = Math.max(barHeight * dpr, amp * maxBarHeight)
         const x = i * step
         const y = centerY - barH / 2
-        ctx.fillStyle = lerpColor(barColorStart, barColorEnd, amp)
+        ctx.fillStyle = color
+        ctx.globalAlpha = minOpacity + (1 - minOpacity) * amp
         ctx.beginPath()
         if (typeof ctx.roundRect === "function") {
           ctx.roundRect(x, y, barWidth * dpr, barH, barRadius * dpr)
@@ -91,6 +80,7 @@ function Waveform({
         }
         ctx.fill()
       }
+      ctx.globalAlpha = 1
 
       if (fadeEdges) {
         const fw = fadeWidth * dpr
@@ -110,7 +100,7 @@ function Waveform({
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     return () => observer.disconnect()
-  }, [data, barWidth, barHeight, barGap, barRadius, barColorStart, barColorEnd, fadeEdges, fadeWidth])
+  }, [data, barWidth, barHeight, barGap, barRadius, barColor, minOpacity, fadeEdges, fadeWidth])
 
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!onBarClick) return
