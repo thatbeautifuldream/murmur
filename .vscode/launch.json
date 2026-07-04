@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:murmur}/native/speechd",
+            "name": "Debug murmur-speechd (native/speechd)",
+            "target": "murmur-speechd",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug murmur-speechd (native/speechd)"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:murmur}/native/speechd",
+            "name": "Release murmur-speechd (native/speechd)",
+            "target": "murmur-speechd",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release murmur-speechd (native/speechd)"
+        }
+    ]
+}
