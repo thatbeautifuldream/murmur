@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { DictationStatus } from "@app/contracts";
 import { getDesktopBridge, isDesktop } from "@/desktopBridge";
-import { LiveWaveform } from "@/components/ui/live-waveform";
+import { MicrophoneWaveform } from "@/components/ui/waveform";
 
 export const Route = createFileRoute("/")({
   component: DictationRoute,
@@ -62,15 +62,14 @@ function DictationRoute() {
         className="t-pill-content w-full px-4"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        <LiveWaveform
+        <MicrophoneWaveform
           active={listening}
-          processing={status === "inserting"}
-          mode="scrolling"
           height={22}
           barWidth={2.5}
           barGap={2}
-          sensitivity={2.5}
-          smoothingTimeConstant={0.5}
+          barHeight={3}
+          fadeEdges={false}
+          sensitivity={1.5}
           onError={(error) => console.error("murmur: mic access failed", error)}
         />
       </div>
