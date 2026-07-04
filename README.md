@@ -1,6 +1,6 @@
 # murmur
 
-System-wide dictation for macOS. A small Swift speech service (`murmur-speechd`, Apple Speech / SFSpeechRecognizer) exposed over a local loopback API, driven by an Electron + React desktop app. Speak, and the transcript lands wherever your cursor is.
+System-wide dictation for macOS. A small Swift speech daemon (`native/speechd`, Apple Speech / SFSpeechRecognizer) over a local loopback API, spawned and managed by an Electron + React desktop app — one self-contained package, no separate service to run by hand. Speak, and the transcript lands wherever your cursor is.
 
 Electron shell built on an Electron + React + Vite template: renderer and main process talk through a strongly typed `window.desktopBridge` defined once in `packages/contracts`.
 
@@ -8,22 +8,27 @@ Electron shell built on an Electron + React + Vite template: renderer and main p
 
 ```
 apps/
-  desktop/   Electron main + preload (tsdown -> dist-electron/*.cjs)
-  web/       Vite + React renderer (also runnable as a standalone web app)
+  desktop/       Electron main + preload (tsdown -> dist-electron/*.cjs)
+                 spawns/kills native/speechd on startup/quit (speechd-manager.ts)
+  web/           Vite + React renderer (also runnable as a standalone web app)
 packages/
-  contracts/ Shared DesktopBridge interface + IPC channel constants
+  contracts/     Shared DesktopBridge interface + IPC channel constants
+native/
+  speechd/       Swift package — Apple Speech + AVAudioEngine behind a
+                 loopback HTTP API (127.0.0.1:8722)
 ```
 
 ## Develop
 
 ```sh
 bun install
+bun run speechd:build   # builds native/speechd once (debug)
 bun run dev
 ```
 
-This starts Vite on `http://localhost:5173` and Electron, which loads the dev server. Edit web code and HMR works; edit desktop code and the launcher restarts Electron.
+This starts Vite on `http://localhost:5173` and Electron, which loads the dev server and spawns `native/speechd`'s debug binary as a child process (see `apps/desktop/src/speechd-manager.ts`). Edit web code and HMR works; edit desktop or Swift code and restart `bun run dev` to pick it up.
 
-Run [murmur-speechd](../murmur-speechd) alongside it (`swift build && .build/debug/murmur-speechd`) — the app talks to it on `127.0.0.1:8722`. Tap **Option** anywhere to start/stop dictation; the transcript is pasted into whatever app is frontmost. Requires the Accessibility permission (both for the global Option-tap listener and the paste keystroke) — macOS will prompt on first run.
+Tap **Option** anywhere to start/stop dictation; the transcript is pasted into whatever app is frontmost. Requires Accessibility (global Option-tap listener + paste keystroke), Microphone, and Speech Recognition permissions — macOS prompts for each on first run.
 
 ## Build
 
@@ -35,21 +40,18 @@ bun run start   # runs the built Electron app against the built renderer
 ## Package (installer)
 
 ```sh
-bun run --cwd apps/desktop package         # current platform
-bun run --cwd apps/desktop package:mac     # DMG (arm64 + x64)
-bun run --cwd apps/desktop package:win     # NSIS installer
-bun run --cwd apps/desktop package:linux   # AppImage
+bun run package   # builds native/speechd in release mode, then the app + DMG
 ```
 
-Output lands in `apps/desktop/release/`. Config: `apps/desktop/electron-builder.config.cjs`.
+`bun run package` builds `native/speechd` in release first (`speechd:build:release`), then the web/desktop bundles, then hands off to electron-builder — the compiled speechd binary is embedded as an extraResource (`apps/desktop/electron-builder.config.cjs`) so the packaged `.app` is self-contained. Output lands in `apps/desktop/release/`.
 
 ## Stack
 
 - **Renderer**: Vite 5, React 19, TanStack Router (file-based routing in `apps/web/src/routes/`), Tailwind v4 (`@tailwindcss/vite`).
 - **Main**: Electron 33, bundled with tsdown to CJS in `dist-electron/`.
 - **Contract**: shared `DesktopBridge` interface in `packages/contracts`.
-- **Packaging**: electron-builder.
-- **Speech backend**: `murmur-speechd` (separate Swift package), Apple Speech framework over a loopback HTTP API.
+- **Packaging**: electron-builder; bundles `native/speechd`'s release binary as an extraResource.
+- **Speech backend**: `native/speechd` (Swift package), Apple Speech framework over a loopback HTTP API — spawned as a child process by `apps/desktop/src/speechd-manager.ts`.
 
 ## Adding an IPC method
 

@@ -19,6 +19,15 @@ module.exports = {
   mac: {
     target: [{ target: "dmg", arch: ["arm64", "x64"] }],
     category: "public.app-category.developer-tools",
+    // Bundles the release build of native/speechd so the packaged app is
+    // self-contained — build it first with "bun run speechd:build:release".
+    extraResources: [
+      {
+        from: "../../native/speechd/.build/release/murmur-speechd",
+        to: "murmur-speechd/murmur-speechd",
+      },
+    ],
+    binaries: ["Contents/Resources/murmur-speechd/murmur-speechd"],
   },
   win: {
     target: [{ target: "nsis", arch: ["x64"] }],

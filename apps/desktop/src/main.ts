@@ -5,6 +5,7 @@ import { registerIpcHandlers } from "./ipc/handlers";
 import { toggleDictation } from "./dictation";
 import { listenForOptionTap } from "./option-key-listener";
 import { installApplicationMenu } from "./window-chrome";
+import { startSpeechd, stopSpeechd } from "./speechd-manager";
 
 const isDev = !app.isPackaged;
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -106,6 +107,7 @@ app.whenReady().then(async () => {
   registerIpcHandlers();
   installApplicationMenu();
   createMainWindow();
+  startSpeechd();
 
   stopOptionListener = listenForOptionTap(() => void toggleDictation());
 
@@ -118,6 +120,7 @@ app.whenReady().then(async () => {
 
 app.on("will-quit", () => {
   stopOptionListener?.();
+  stopSpeechd();
 });
 
 app.on("window-all-closed", () => {
