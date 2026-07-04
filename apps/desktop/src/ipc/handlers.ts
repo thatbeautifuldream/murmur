@@ -1,7 +1,11 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
 import { IpcChannels, type Theme } from "@app/contracts";
+import { startDictation, stopDictation } from "../dictation";
 
 export function registerIpcHandlers(): void {
+  ipcMain.handle(IpcChannels.DICTATION_START, (_event, locale?: string) => startDictation(locale));
+  ipcMain.handle(IpcChannels.DICTATION_STOP, () => stopDictation());
+
   ipcMain.handle(IpcChannels.GET_APP_VERSION, () => app.getVersion());
 
   ipcMain.handle(IpcChannels.PICK_FOLDER, async () => {

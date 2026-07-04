@@ -23,6 +23,8 @@ bun run dev
 
 This starts Vite on `http://localhost:5173` and Electron, which loads the dev server. Edit web code and HMR works; edit desktop code and the launcher restarts Electron.
 
+Run [murmur-speechd](../murmur-speechd) alongside it (`swift build && .build/debug/murmur-speechd`) — the app talks to it on `127.0.0.1:8722`. Press **Option+Space** anywhere to start/stop dictation; the transcript is pasted into whatever app is frontmost (requires the Accessibility permission for the paste keystroke).
+
 ## Build
 
 ```sh

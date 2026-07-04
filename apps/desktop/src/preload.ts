@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { IpcChannels, type DesktopBridge, type Platform, type Theme } from "@app/contracts";
+import {
+  IpcChannels,
+  type DesktopBridge,
+  type DictationStatus,
+  type Platform,
+  type Theme,
+} from "@app/contracts";
 
 const platform = process.platform as Platform;
 
@@ -25,6 +31,19 @@ const bridge: DesktopBridge = {
     const wrapped = (_event: Electron.IpcRendererEvent, factor: number) => listener(factor);
     ipcRenderer.on(IpcChannels.ON_ZOOM_CHANGED, wrapped);
     return () => ipcRenderer.removeListener(IpcChannels.ON_ZOOM_CHANGED, wrapped);
+  },
+  startDictation: (locale) => ipcRenderer.invoke(IpcChannels.DICTATION_START, locale),
+  stopDictation: () => ipcRenderer.invoke(IpcChannels.DICTATION_STOP),
+  onDictationStatusChanged: (listener) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, status: DictationStatus) =>
+      listener(status);
+    ipcRenderer.on(IpcChannels.ON_DICTATION_STATUS_CHANGED, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.ON_DICTATION_STATUS_CHANGED, wrapped);
+  },
+  onDictationTranscript: (listener) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, text: string) => listener(text);
+    ipcRenderer.on(IpcChannels.ON_DICTATION_TRANSCRIPT, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.ON_DICTATION_TRANSCRIPT, wrapped);
   },
 };
 

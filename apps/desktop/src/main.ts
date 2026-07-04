@@ -1,13 +1,19 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, globalShortcut } from "electron";
 import * as path from "node:path";
 import * as url from "node:url";
 import { IpcChannels } from "@app/contracts";
 import { registerIpcHandlers } from "./ipc/handlers";
+import { toggleDictation } from "./dictation";
 import {
   TRAFFIC_LIGHT_POSITION,
   installApplicationMenu,
   broadcastZoom,
 } from "./window-chrome";
+
+// Option+Space — toggles dictation from anywhere, not just while Murmur is
+// focused, since the whole point is inserting text into whatever app has
+// the cursor.
+const DICTATION_SHORTCUT = "Alt+Space";
 
 const isDev = !app.isPackaged;
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -76,11 +82,17 @@ app.whenReady().then(() => {
   installApplicationMenu();
   createMainWindow();
 
+  globalShortcut.register(DICTATION_SHORTCUT, () => void toggleDictation());
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
     }
   });
+});
+
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on("window-all-closed", () => {
