@@ -5,6 +5,7 @@ final class Server {
     private let port: NWEndpoint.Port
     private var listener: NWListener?
     private let engine = SpeechEngine()
+    private let formatter = TranscriptFormatter()
 
     init(port: UInt16 = 8722) {
         self.port = NWEndpoint.Port(rawValue: port)!
@@ -80,10 +81,14 @@ final class Server {
             }
         case ("POST", "/stop"):
             let result = engine.stop()
-            respond(connection, status: 200, body: [
-                "text": result.text,
-                "audioPath": result.audioPath ?? ""
-            ])
+            Task { [formatter] in
+                let formattedText = await formatter.format(result.text)
+                respond(connection, status: 200, body: [
+                    "text": formattedText,
+                    "rawText": result.text,
+                    "audioPath": result.audioPath ?? ""
+                ])
+            }
         default:
             respond(connection, status: 404, body: ["error": "not found"])
         }
