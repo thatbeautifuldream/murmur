@@ -5,7 +5,7 @@ import { Outlet } from "@tanstack/react-router";
  *  inside it and lets it drive its own size. */
 export function AppShell() {
   return (
-    <div className="isolate flex h-dvh flex-col items-center justify-end bg-transparent p-3">
+    <div className="isolate flex h-dvh flex-col items-center justify-end bg-transparent p-6">
       <Outlet />
     </div>
   );

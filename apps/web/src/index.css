@@ -434,9 +434,11 @@
 
 /* Premium floating-object treatment: a top-to-bottom sheen (not flat fill),
    an inner top highlight + bottom shade for a subtle bevel, a hairline ring
-   in place of a solid border, and a layered ambient + contact shadow — this
-   pill is the only visible surface on a transparent window, so it has to
-   read as a well-made object over arbitrary desktop content, not a page card. */
+   in place of a solid border, and one restrained ambient shadow — this pill
+   is the only visible surface on a transparent window, so the shadow has to
+   stay well inside the window's own bounds (see app-shell padding) or the
+   window edge hard-clips it into a visible rectangular cut. Keep this
+   understated rather than reaching for a bigger, more dramatic spread. */
 .t-pill[data-expanded="true"] {
   width: 240px;
   height: 44px;
@@ -451,8 +453,7 @@
     0 -1px 0 0 color-mix(in srgb, black 6%, transparent) inset,
     0 0 0 1px color-mix(in srgb, var(--foreground) 8%, transparent),
     0 1px 2px color-mix(in srgb, black 10%, transparent),
-    0 8px 16px -6px color-mix(in srgb, black 24%, transparent),
-    0 20px 40px -12px color-mix(in srgb, black 32%, transparent);
+    0 6px 14px -8px color-mix(in srgb, black 30%, transparent);
   transition-duration: var(--pill-resize-dur-expand);
 }
 
@@ -468,8 +469,7 @@
     0 -1px 0 0 color-mix(in srgb, black 30%, transparent) inset,
     0 0 0 1px color-mix(in srgb, white 10%, transparent),
     0 1px 2px color-mix(in srgb, black 40%, transparent),
-    0 8px 20px -6px color-mix(in srgb, black 55%, transparent),
-    0 24px 48px -12px color-mix(in srgb, black 65%, transparent);
+    0 6px 16px -8px color-mix(in srgb, black 50%, transparent);
 }
 
 .t-pill-content {

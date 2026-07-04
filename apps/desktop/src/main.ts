@@ -21,9 +21,12 @@ function resolveRendererIndex(): string {
 // Fixed footprint sized for the expanded (listening) pill, with the pill
 // itself bottom-anchored inside it via flex. Sizing the window this way
 // instead of resizing on state change avoids OS-level resize jank on a
-// frameless/transparent window.
-const PILL_WIDTH = 280;
-const PILL_AREA_HEIGHT = 72;
+// frameless/transparent window. The extra margin beyond the pill's own
+// size (see app-shell's padding) isn't just breathing room — the CSS box
+// shadow needs real transparent canvas to blur into, or the window's own
+// rectangular bounds hard-clip it into a visible cut edge.
+const PILL_WIDTH = 320;
+const PILL_AREA_HEIGHT = 100;
 const BOTTOM_MARGIN = 28;
 
 function createMainWindow(): BrowserWindow {
