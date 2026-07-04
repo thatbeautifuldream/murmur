@@ -8,6 +8,10 @@ export const IpcChannels = {
   DICTATION_STOP: "dictation:stop",
   ON_DICTATION_STATUS_CHANGED: "dictation:status-changed",
   ON_DICTATION_TRANSCRIPT: "dictation:transcript",
+  TRANSCRIPT_HISTORY_LIST: "transcript-history:list",
+  TRANSCRIPT_HISTORY_DELETE: "transcript-history:delete",
+  TRANSCRIPT_HISTORY_CLEAR: "transcript-history:clear",
+  ON_TRANSCRIPT_HISTORY_CHANGED: "transcript-history:changed",
 } as const;
 
 export type Theme = "light" | "dark" | "system";
@@ -24,6 +28,21 @@ export interface DictationStartResult {
 
 export interface DictationStopResult {
   text: string;
+}
+
+export interface TranscriptHistoryEntry {
+  id: string;
+  text: string;
+  locale: string;
+  sourceAppName: string | null;
+  sourceAppBundleId: string | null;
+  sourceProcessId: number | null;
+  durationMs: number | null;
+  audioPath: string | null;
+  audioFormat: string | null;
+  audioByteSize: number | null;
+  inserted: boolean;
+  createdAt: string;
 }
 
 export interface DesktopBridge {
@@ -45,6 +64,10 @@ export interface DesktopBridge {
    *  when stopped via the global shortcut, where there's no IPC caller
    *  around to receive `stopDictation`'s return value. */
   onDictationTranscript(listener: (text: string) => void): () => void;
+  listTranscriptHistory(limit?: number): Promise<TranscriptHistoryEntry[]>;
+  deleteTranscriptHistoryEntry(id: string): Promise<void>;
+  clearTranscriptHistory(): Promise<void>;
+  onTranscriptHistoryChanged(listener: () => void): () => void;
 }
 
 declare global {

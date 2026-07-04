@@ -70,14 +70,20 @@ final class Server {
             respond(connection, status: 200, body: ["status": "ok"])
         case ("POST", _) where path.hasPrefix("/start"):
             do {
-                try engine.start(locale: queryParam(path, "locale") ?? "en-US")
+                try engine.start(
+                    locale: queryParam(path, "locale") ?? "en-US",
+                    recordingPath: queryParam(path, "recordingPath")
+                )
                 respond(connection, status: 200, body: ["status": "listening"])
             } catch {
                 respond(connection, status: 500, body: ["error": "\(error)"])
             }
         case ("POST", "/stop"):
-            let text = engine.stop()
-            respond(connection, status: 200, body: ["text": text])
+            let result = engine.stop()
+            respond(connection, status: 200, body: [
+                "text": result.text,
+                "audioPath": result.audioPath ?? ""
+            ])
         default:
             respond(connection, status: 404, body: ["error": "not found"])
         }
@@ -90,7 +96,9 @@ final class Server {
         for pair in query.split(separator: "&") {
             let parts = pair.split(separator: "=", maxSplits: 1)
             if parts.first == Substring(name) {
-                return parts.count > 1 ? String(parts[1]).removingPercentEncoding : ""
+                return parts.count > 1
+                    ? String(parts[1]).replacingOccurrences(of: "+", with: " ").removingPercentEncoding
+                    : ""
             }
         }
         return nil

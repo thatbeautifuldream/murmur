@@ -22,6 +22,11 @@ const bridge: DesktopBridge = {
   },
   startDictation: (locale) => ipcRenderer.invoke(IpcChannels.DICTATION_START, locale),
   stopDictation: () => ipcRenderer.invoke(IpcChannels.DICTATION_STOP),
+  listTranscriptHistory: (limit) =>
+    ipcRenderer.invoke(IpcChannels.TRANSCRIPT_HISTORY_LIST, limit),
+  deleteTranscriptHistoryEntry: (id) =>
+    ipcRenderer.invoke(IpcChannels.TRANSCRIPT_HISTORY_DELETE, id),
+  clearTranscriptHistory: () => ipcRenderer.invoke(IpcChannels.TRANSCRIPT_HISTORY_CLEAR),
   onDictationStatusChanged: (listener) => {
     const wrapped = (_event: Electron.IpcRendererEvent, status: DictationStatus) =>
       listener(status);
@@ -32,6 +37,11 @@ const bridge: DesktopBridge = {
     const wrapped = (_event: Electron.IpcRendererEvent, text: string) => listener(text);
     ipcRenderer.on(IpcChannels.ON_DICTATION_TRANSCRIPT, wrapped);
     return () => ipcRenderer.removeListener(IpcChannels.ON_DICTATION_TRANSCRIPT, wrapped);
+  },
+  onTranscriptHistoryChanged: (listener) => {
+    const wrapped = () => listener();
+    ipcRenderer.on(IpcChannels.ON_TRANSCRIPT_HISTORY_CHANGED, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.ON_TRANSCRIPT_HISTORY_CHANGED, wrapped);
   },
 };
 

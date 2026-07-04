@@ -6,6 +6,8 @@ final class SpeechEngine {
     private var recognizer: SFSpeechRecognizer?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    private var audioFile: AVAudioFile?
+    private var recordingPath: String?
     private var latestText = ""
 
     func requestAuthorization(_ completion: @escaping (Bool) -> Void) {
@@ -16,7 +18,7 @@ final class SpeechEngine {
         }
     }
 
-    func start(locale: String = "en-US") throws {
+    func start(locale: String = "en-US", recordingPath: String? = nil) throws {
         stopEngineIfNeeded()
 
         let recognizer = SFSpeechRecognizer(locale: Locale(identifier: locale))
@@ -32,8 +34,16 @@ final class SpeechEngine {
 
         let input = audioEngine.inputNode
         let format = input.outputFormat(forBus: 0)
+        self.recordingPath = recordingPath
+        if let recordingPath, !recordingPath.isEmpty {
+            audioFile = try AVAudioFile(
+                forWriting: URL(fileURLWithPath: recordingPath),
+                settings: format.settings
+            )
+        }
         input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
             self?.request?.append(buffer)
+            try? self?.audioFile?.write(from: buffer)
         }
 
         audioEngine.prepare()
@@ -45,9 +55,9 @@ final class SpeechEngine {
         }
     }
 
-    func stop() -> String {
+    func stop() -> SpeechResult {
         stopEngineIfNeeded()
-        return latestText
+        return SpeechResult(text: latestText, audioPath: recordingPath)
     }
 
     private func stopEngineIfNeeded() {
@@ -59,7 +69,13 @@ final class SpeechEngine {
         task?.cancel()
         request = nil
         task = nil
+        audioFile = nil
     }
+}
+
+struct SpeechResult {
+    let text: String
+    let audioPath: String?
 }
 
 enum SpeechError: Error {

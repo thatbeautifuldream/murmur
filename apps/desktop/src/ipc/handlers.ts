@@ -1,10 +1,24 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
 import { IpcChannels, type Theme } from "@app/contracts";
 import { startDictation, stopDictation } from "../dictation";
+import {
+  clearTranscriptHistory,
+  deleteTranscriptHistoryEntry,
+  listTranscriptHistory,
+} from "../transcript-history";
 
 export function registerIpcHandlers(): void {
   ipcMain.handle(IpcChannels.DICTATION_START, (_event, locale?: string) => startDictation(locale));
   ipcMain.handle(IpcChannels.DICTATION_STOP, () => stopDictation());
+  ipcMain.handle(IpcChannels.TRANSCRIPT_HISTORY_LIST, (_event, limit?: number) =>
+    listTranscriptHistory(limit),
+  );
+  ipcMain.handle(IpcChannels.TRANSCRIPT_HISTORY_DELETE, (_event, id: string) => {
+    deleteTranscriptHistoryEntry(id);
+  });
+  ipcMain.handle(IpcChannels.TRANSCRIPT_HISTORY_CLEAR, () => {
+    clearTranscriptHistory();
+  });
 
   ipcMain.handle(IpcChannels.GET_APP_VERSION, () => app.getVersion());
 

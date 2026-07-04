@@ -6,6 +6,8 @@ import { toggleDictation } from "./dictation";
 import { listenForOptionTap } from "./option-key-listener";
 import { installApplicationMenu } from "./window-chrome";
 import { startSpeechd, stopSpeechd } from "./speechd-manager";
+import { installTray, uninstallTray } from "./tray";
+import { closeTranscriptHistoryStore } from "./transcript-history";
 
 const isDev = !app.isPackaged;
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -106,6 +108,7 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers();
   installApplicationMenu();
+  installTray();
   createMainWindow();
   startSpeechd();
 
@@ -120,7 +123,9 @@ app.whenReady().then(async () => {
 
 app.on("will-quit", () => {
   stopOptionListener?.();
+  uninstallTray();
   stopSpeechd();
+  closeTranscriptHistoryStore();
 });
 
 app.on("window-all-closed", () => {

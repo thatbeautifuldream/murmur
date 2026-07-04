@@ -1,15 +1,32 @@
-import { BrowserWindow, clipboard } from "electron";
+import { app, BrowserWindow, clipboard } from "electron";
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { mkdirSync, statSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import { IpcChannels, type DictationStatus, type DictationStopResult } from "@app/contracts";
+import { saveTranscriptHistory } from "./transcript-history";
 
 const SPEECHD_URL = "http://127.0.0.1:8722";
 
 let status: DictationStatus = "idle";
+let activeLocale = "en-US";
+let startedAt: number | undefined;
+let activeRecordingPath: string | undefined;
+const statusListeners = new Set<(status: DictationStatus) => void>();
+
+interface FrontmostAppInfo {
+  name: string | null;
+  bundleId: string | null;
+  processId: number | null;
+}
 
 function setStatus(next: DictationStatus): void {
   status = next;
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IpcChannels.ON_DICTATION_STATUS_CHANGED, status);
+  }
+  for (const listener of statusListeners) {
+    listener(status);
   }
 }
 
@@ -23,17 +40,27 @@ export function getDictationStatus(): DictationStatus {
   return status;
 }
 
+export function onDictationStatusChanged(
+  listener: (status: DictationStatus) => void,
+): () => void {
+  statusListeners.add(listener);
+  return () => statusListeners.delete(listener);
+}
+
 export async function startDictation(locale = "en-US"): Promise<{ ok: boolean; error?: string }> {
   if (status === "listening") return { ok: true };
   try {
-    const response = await fetch(`${SPEECHD_URL}/start?locale=${encodeURIComponent(locale)}`, {
-      method: "POST",
-    });
+    const recordingPath = createRecordingPath();
+    const params = new URLSearchParams({ locale, recordingPath });
+    const response = await fetch(`${SPEECHD_URL}/start?${params.toString()}`, { method: "POST" });
     if (!response.ok) {
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       setStatus("error");
       return { ok: false, error: body.error ?? `HTTP ${response.status}` };
     }
+    activeLocale = locale;
+    activeRecordingPath = recordingPath;
+    startedAt = Date.now();
     setStatus("listening");
     return { ok: true };
   } catch (error) {
@@ -45,17 +72,42 @@ export async function startDictation(locale = "en-US"): Promise<{ ok: boolean; e
 export async function stopDictation(): Promise<DictationStopResult> {
   if (status !== "listening") return { text: "" };
   try {
+    const sourceApp = await getFrontmostAppInfo();
     const response = await fetch(`${SPEECHD_URL}/stop`, { method: "POST" });
-    const body = (await response.json()) as { text?: string };
+    const body = (await response.json()) as { text?: string; audioPath?: string };
     const text = body.text ?? "";
+    const audioPath = body.audioPath || activeRecordingPath || null;
     if (text) {
       setStatus("inserting");
       await insertAtCursor(text);
+      try {
+        saveTranscriptHistory({
+          text,
+          locale: activeLocale,
+          sourceAppName: sourceApp.name,
+          sourceAppBundleId: sourceApp.bundleId,
+          sourceProcessId: sourceApp.processId,
+          durationMs: startedAt ? Date.now() - startedAt : null,
+          audioPath,
+          audioFormat: audioPath ? "caf" : null,
+          audioByteSize: getFileSize(audioPath),
+          inserted: true,
+        });
+      } catch (error) {
+        console.error("murmur: failed to save transcript history", error);
+      }
       broadcastTranscript(text);
+    } else {
+      deleteFileIfPresent(audioPath);
     }
+    activeRecordingPath = undefined;
+    startedAt = undefined;
     setStatus("idle");
     return { text };
   } catch {
+    deleteFileIfPresent(activeRecordingPath);
+    activeRecordingPath = undefined;
+    startedAt = undefined;
     setStatus("idle");
     return { text: "" };
   }
@@ -88,4 +140,66 @@ async function insertAtCursor(text: string): Promise<void> {
     );
   });
   setTimeout(() => clipboard.writeText(previousClipboard), 2000);
+}
+
+function createRecordingPath(): string {
+  const now = new Date();
+  const year = String(now.getFullYear());
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const directory = join(app.getPath("userData"), "recordings", year, month);
+  mkdirSync(directory, { recursive: true });
+  return join(directory, `${randomUUID()}.caf`);
+}
+
+function getFileSize(filePath: string | null): number | null {
+  if (!filePath) return null;
+  try {
+    return statSync(filePath).size;
+  } catch {
+    return null;
+  }
+}
+
+function deleteFileIfPresent(filePath: string | null | undefined): void {
+  if (!filePath) return;
+  try {
+    unlinkSync(filePath);
+  } catch {
+    // Best effort cleanup for empty/failed dictation recordings.
+  }
+}
+
+async function getFrontmostAppInfo(): Promise<FrontmostAppInfo> {
+  if (process.platform !== "darwin") {
+    return { name: null, bundleId: null, processId: null };
+  }
+
+  return new Promise((resolve) => {
+    execFile(
+      "osascript",
+      [
+        "-e",
+        `tell application "System Events"
+          set frontApp to first application process whose frontmost is true
+          set appName to name of frontApp
+          set appPid to unix id of frontApp
+          try
+            set appBundleId to bundle identifier of frontApp
+          on error
+            set appBundleId to ""
+          end try
+        end tell
+        return appName & linefeed & appBundleId & linefeed & appPid`,
+      ],
+      (_error, stdout) => {
+        const [name, bundleId, processId] = stdout.trim().split("\n");
+        const parsedProcessId = processId ? Number(processId) : NaN;
+        resolve({
+          name: name || null,
+          bundleId: bundleId || null,
+          processId: Number.isFinite(parsedProcessId) ? parsedProcessId : null,
+        });
+      },
+    );
+  });
 }
