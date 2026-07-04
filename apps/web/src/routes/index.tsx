@@ -32,14 +32,14 @@ function useDictation() {
 function DictationRoute() {
   const status = useDictation();
   const listening = status === "listening";
-  const expanded = listening || status === "inserting";
+  const expanded = listening;
 
   const toggle = () => {
     const bridge = getDesktopBridge();
     if (!bridge) return;
     if (listening) {
       void bridge.stopDictation();
-    } else {
+    } else if (status === "idle" || status === "error") {
       void bridge.startDictation(LOCALE);
     }
   };

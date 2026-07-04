@@ -25,6 +25,7 @@ export function getDictationStatus(): DictationStatus {
 
 export async function startDictation(locale = "en-US"): Promise<{ ok: boolean; error?: string }> {
   if (status === "listening") return { ok: true };
+  if (status === "inserting") return { ok: false, error: "dictation is stopping" };
   try {
     const response = await fetch(`${SPEECHD_URL}/start?locale=${encodeURIComponent(locale)}`, {
       method: "POST",
@@ -44,12 +45,12 @@ export async function startDictation(locale = "en-US"): Promise<{ ok: boolean; e
 
 export async function stopDictation(): Promise<DictationStopResult> {
   if (status !== "listening") return { text: "" };
+  setStatus("inserting");
   try {
     const response = await fetch(`${SPEECHD_URL}/stop`, { method: "POST" });
     const body = (await response.json()) as { text?: string };
     const text = body.text ?? "";
     if (text) {
-      setStatus("inserting");
       await insertAtCursor(text);
       broadcastTranscript(text);
     }

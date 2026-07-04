@@ -76,8 +76,9 @@ final class Server {
                 respond(connection, status: 500, body: ["error": "\(error)"])
             }
         case ("POST", "/stop"):
-            let text = engine.stop()
-            respond(connection, status: 200, body: ["text": text])
+            engine.stop { [weak self] text in
+                self?.respond(connection, status: 200, body: ["text": text])
+            }
         default:
             respond(connection, status: 404, body: ["error": "not found"])
         }
