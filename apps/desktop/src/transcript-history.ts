@@ -1,9 +1,19 @@
 import { app, BrowserWindow } from "electron";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, unlinkSync } from "node:fs";
+import { mkdirSync, readFileSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { IpcChannels, type TranscriptHistoryEntry } from "@app/contracts";
+
+const AUDIO_MIME_TYPES: Record<string, string> = {
+  wav: "audio/wav",
+  mp3: "audio/mpeg",
+  webm: "audio/webm",
+  ogg: "audio/ogg",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  caf: "audio/x-caf",
+};
 
 interface SaveTranscriptHistoryInput {
   text: string;
@@ -209,6 +219,28 @@ export function clearTranscriptHistory(): void {
     deleteAudioFile(row.audio_path);
   }
   broadcastHistoryChanged();
+}
+
+export function getTranscriptAudioFile(id: string): { bytes: Buffer; mimeType: string } | null {
+  const row = getDatabase()
+    .prepare("SELECT audio_path, audio_format FROM transcript_history WHERE id = ?")
+    .get(id) as { audio_path: string | null; audio_format: string | null } | undefined;
+
+  if (!row?.audio_path) return null;
+
+  try {
+    const bytes = readFileSync(row.audio_path);
+    const mimeType = AUDIO_MIME_TYPES[row.audio_format ?? ""] ?? "audio/wav";
+    return { bytes, mimeType };
+  } catch {
+    return null;
+  }
+}
+
+export function readTranscriptAudio(id: string): string | null {
+  const file = getTranscriptAudioFile(id);
+  if (!file) return null;
+  return `data:${file.mimeType};base64,${file.bytes.toString("base64")}`;
 }
 
 function deleteAudioFile(filePath: string | null | undefined): void {

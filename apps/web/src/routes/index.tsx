@@ -1,10 +1,19 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { DictationStatus } from "@app/contracts";
 import { getDesktopBridge, isDesktop } from "@/desktopBridge";
 import { MicrophoneWaveform } from "@/components/ui/waveform";
 
 export const Route = createFileRoute("/")({
+  // The root route is the dictation pill, which only makes sense inside the
+  // Electron shell (it drives native mic capture over `window.desktopBridge`).
+  // A plain browser tab has no bridge, so send it straight to History instead
+  // of rendering a blank pill.
+  beforeLoad: () => {
+    if (!isDesktop) {
+      throw redirect({ to: "/history" });
+    }
+  },
   component: DictationRoute,
 });
 
@@ -43,8 +52,6 @@ function DictationRoute() {
       void bridge.startDictation(LOCALE);
     }
   };
-
-  if (!isDesktop) return null;
 
   return (
     <div

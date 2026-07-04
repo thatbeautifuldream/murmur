@@ -1,6 +1,5 @@
 import { app, BrowserWindow, screen, session, systemPreferences } from "electron";
 import * as path from "node:path";
-import * as url from "node:url";
 import { registerIpcHandlers } from "./ipc/handlers";
 import { toggleDictation } from "./dictation";
 import { listenForOptionTap } from "./option-key-listener";
@@ -8,18 +7,8 @@ import { installApplicationMenu } from "./window-chrome";
 import { startSpeechd, stopSpeechd } from "./speechd-manager";
 import { installTray, uninstallTray } from "./tray";
 import { closeTranscriptHistoryStore } from "./transcript-history";
-
-const isDev = !app.isPackaged;
-const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-
-function resolveRendererIndex(): string {
-  // Packaged: renderer is copied to resources/renderer by electron-builder.
-  // Unpackaged build (bun run build && bun run start): load apps/web/dist directly.
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, "renderer", "index.html");
-  }
-  return path.join(__dirname, "..", "..", "web", "dist", "index.html");
-}
+import { resolveRendererUrl } from "./app-window";
+import { startLocalServer, stopLocalServer } from "./local-server";
 
 // Fixed footprint sized for the expanded (listening) pill, with the pill
 // itself bottom-anchored inside it via flex. Sizing the window this way
@@ -71,11 +60,7 @@ function createMainWindow(): BrowserWindow {
   window.once("ready-to-show", floatEverywhere);
   window.on("show", floatEverywhere);
 
-  if (isDev && devServerUrl) {
-    void window.loadURL(devServerUrl);
-  } else {
-    void window.loadURL(url.pathToFileURL(resolveRendererIndex()).toString());
-  }
+  void window.loadURL(resolveRendererUrl());
 
   return window;
 }
@@ -107,6 +92,7 @@ app.whenReady().then(async () => {
   }
 
   registerIpcHandlers();
+  startLocalServer();
   installApplicationMenu();
   installTray();
   createMainWindow();
@@ -125,6 +111,7 @@ app.on("will-quit", () => {
   stopOptionListener?.();
   uninstallTray();
   stopSpeechd();
+  stopLocalServer();
   closeTranscriptHistoryStore();
 });
 

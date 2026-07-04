@@ -11,8 +11,14 @@ export const IpcChannels = {
   TRANSCRIPT_HISTORY_LIST: "transcript-history:list",
   TRANSCRIPT_HISTORY_DELETE: "transcript-history:delete",
   TRANSCRIPT_HISTORY_CLEAR: "transcript-history:clear",
+  TRANSCRIPT_HISTORY_READ_AUDIO: "transcript-history:read-audio",
   ON_TRANSCRIPT_HISTORY_CHANGED: "transcript-history:changed",
 } as const;
+
+/** Port for the localhost HTTP API the desktop app exposes so a plain
+ *  browser tab (no `window.desktopBridge`) can read/manage the same
+ *  transcript history — see apps/desktop/src/local-server.ts. */
+export const LOCAL_HTTP_PORT = 47850;
 
 export type Theme = "light" | "dark" | "system";
 export type Platform = "darwin" | "win32" | "linux";
@@ -67,6 +73,10 @@ export interface DesktopBridge {
   listTranscriptHistory(limit?: number): Promise<TranscriptHistoryEntry[]>;
   deleteTranscriptHistoryEntry(id: string): Promise<void>;
   clearTranscriptHistory(): Promise<void>;
+  /** Reads a transcript's recorded audio off disk and returns it as a data
+   *  URL for local playback — `null` if the entry has no audio or the file
+   *  is missing. */
+  readTranscriptAudio(id: string): Promise<string | null>;
   onTranscriptHistoryChanged(listener: () => void): () => void;
 }
 

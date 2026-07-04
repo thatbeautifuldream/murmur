@@ -27,6 +27,8 @@ const bridge: DesktopBridge = {
   deleteTranscriptHistoryEntry: (id) =>
     ipcRenderer.invoke(IpcChannels.TRANSCRIPT_HISTORY_DELETE, id),
   clearTranscriptHistory: () => ipcRenderer.invoke(IpcChannels.TRANSCRIPT_HISTORY_CLEAR),
+  readTranscriptAudio: (id) =>
+    ipcRenderer.invoke(IpcChannels.TRANSCRIPT_HISTORY_READ_AUDIO, id),
   onDictationStatusChanged: (listener) => {
     const wrapped = (_event: Electron.IpcRendererEvent, status: DictationStatus) =>
       listener(status);

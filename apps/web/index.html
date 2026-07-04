@@ -1,9 +1,21 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>electron-react-bridge</title>
+    <script>
+      // Applies the persisted theme before first paint so there's no flash
+      // of the wrong theme while React mounts — must stay in sync with the
+      // storage key and resolution logic in src/hooks/use-theme.ts.
+      (function () {
+        var theme = localStorage.getItem("app-theme") || "system";
+        var isDark =
+          theme === "dark" ||
+          (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", isDark);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

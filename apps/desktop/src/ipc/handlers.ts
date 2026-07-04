@@ -5,6 +5,7 @@ import {
   clearTranscriptHistory,
   deleteTranscriptHistoryEntry,
   listTranscriptHistory,
+  readTranscriptAudio,
 } from "../transcript-history";
 
 export function registerIpcHandlers(): void {
@@ -19,6 +20,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IpcChannels.TRANSCRIPT_HISTORY_CLEAR, () => {
     clearTranscriptHistory();
   });
+  ipcMain.handle(IpcChannels.TRANSCRIPT_HISTORY_READ_AUDIO, (_event, id: string) =>
+    readTranscriptAudio(id),
+  );
 
   ipcMain.handle(IpcChannels.GET_APP_VERSION, () => app.getVersion());
 

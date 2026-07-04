@@ -5,6 +5,7 @@ import { mkdirSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { IpcChannels, type DictationStatus, type DictationStopResult } from "@app/contracts";
 import { saveTranscriptHistory } from "./transcript-history";
+import { playDictationStartSound, playDictationStopSound } from "./system-sounds";
 
 const SPEECHD_URL = "http://127.0.0.1:8722";
 
@@ -61,6 +62,7 @@ export async function startDictation(locale = "en-US"): Promise<{ ok: boolean; e
     activeLocale = locale;
     activeRecordingPath = recordingPath;
     startedAt = Date.now();
+    playDictationStartSound();
     setStatus("listening");
     return { ok: true };
   } catch (error) {
@@ -89,7 +91,7 @@ export async function stopDictation(): Promise<DictationStopResult> {
           sourceProcessId: sourceApp.processId,
           durationMs: startedAt ? Date.now() - startedAt : null,
           audioPath,
-          audioFormat: audioPath ? "caf" : null,
+          audioFormat: audioPath ? "wav" : null,
           audioByteSize: getFileSize(audioPath),
           inserted: true,
         });
@@ -102,6 +104,7 @@ export async function stopDictation(): Promise<DictationStopResult> {
     }
     activeRecordingPath = undefined;
     startedAt = undefined;
+    playDictationStopSound();
     setStatus("idle");
     return { text };
   } catch {
@@ -148,7 +151,7 @@ function createRecordingPath(): string {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const directory = join(app.getPath("userData"), "recordings", year, month);
   mkdirSync(directory, { recursive: true });
-  return join(directory, `${randomUUID()}.caf`);
+  return join(directory, `${randomUUID()}.wav`);
 }
 
 function getFileSize(filePath: string | null): number | null {

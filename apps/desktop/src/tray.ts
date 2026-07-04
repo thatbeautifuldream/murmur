@@ -1,6 +1,7 @@
 import { Menu, nativeImage, Tray, type NativeImage } from "electron";
 import type { DictationStatus } from "@app/contracts";
 import { getDictationStatus, onDictationStatusChanged, toggleDictation } from "./dictation";
+import { openAppWindow } from "./app-window";
 
 const TRAY_ICON_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
@@ -62,6 +63,8 @@ function openTrayMenu(): void {
       click: () => void toggleDictation(),
     },
     { type: "separator" },
+    { label: "Show History", click: () => openAppWindow("/history") },
+    { type: "separator" },
     { role: "quit" },
   ]);
   tray.popUpContextMenu(menu);
@@ -71,11 +74,7 @@ export function installTray(): void {
   tray = new Tray(createTrayIcon());
   updateTray();
 
-  tray.on("click", () => {
-    if (getDictationStatus() !== "inserting") {
-      void toggleDictation();
-    }
-  });
+  tray.on("click", () => openAppWindow("/history"));
   tray.on("right-click", openTrayMenu);
 
   removeStatusListener = onDictationStatusChanged(updateTray);
