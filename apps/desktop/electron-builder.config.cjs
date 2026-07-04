@@ -16,9 +16,24 @@ module.exports = {
     },
   ],
   asar: true,
+  // Auto-update feed. electron-builder writes app-update.yml from this and the
+  // release script uploads artifacts here with `--publish`.
+  publish: {
+    provider: "github",
+    owner: "thatbeautifuldream",
+    repo: "murmur",
+  },
   mac: {
-    target: [{ target: "dmg", arch: ["arm64", "x64"] }],
+    // zip is what electron-updater consumes on macOS; dmg is the download for
+    // new users. Both must ship for auto-update to work.
+    target: [
+      { target: "dmg", arch: ["arm64"] },
+      { target: "zip", arch: ["arm64"] },
+    ],
     category: "public.app-category.developer-tools",
+    darkModeSupport: true,
+    // Unsigned releases: no code signing, no notarization.
+    identity: null,
     // Bundles the release build of native/speechd so the packaged app is
     // self-contained — build it first with "bun run speechd:build:release".
     extraResources: [
@@ -29,11 +44,10 @@ module.exports = {
     ],
     binaries: ["Contents/Resources/murmur-speechd/murmur-speechd"],
   },
-  win: {
-    target: [{ target: "nsis", arch: ["x64"] }],
-  },
-  linux: {
-    target: [{ target: "AppImage", arch: ["x64"] }],
-    category: "Development",
+  dmg: {
+    contents: [
+      { x: 150, y: 200, type: "file" },
+      { x: 390, y: 200, type: "link", path: "/Applications" },
+    ],
   },
 };

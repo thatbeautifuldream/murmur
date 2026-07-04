@@ -1,6 +1,8 @@
 {
   "name": "@app/desktop",
   "version": "0.0.1",
+  "description": "Murmur desktop app",
+  "author": "Milind Mishra",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.cjs",
@@ -10,17 +12,19 @@
     "dev:electron": "node scripts/dev-electron.mjs",
     "build": "tsdown",
     "start": "electron dist-electron/main.cjs",
-    "package": "bun run build && electron-builder --config electron-builder.config.cjs",
-    "package:mac": "bun run build && electron-builder --mac --config electron-builder.config.cjs",
-    "package:win": "bun run build && electron-builder --win --config electron-builder.config.cjs",
-    "package:linux": "bun run build && electron-builder --linux --config electron-builder.config.cjs",
+    "package": "bun run build && PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 electron-builder --config electron-builder.config.cjs",
+    "package:unsigned": "bun run build && PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config electron-builder.config.cjs",
+    "package:mac": "bun run build && PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 electron-builder --mac --config electron-builder.config.cjs",
+    "release:mac": "bash scripts/release-mac.sh",
+    "publish:mac": "bun run build && PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --config electron-builder.config.cjs --publish always",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "electron": "^43.0.0",
+    "electron-updater": "^6.6.2",
     "uiohook-napi": "^1.5.5"
   },
   "devDependencies": {
+    "electron": "^43.0.0",
     "@app/contracts": "workspace:*",
     "@types/node": "^22.0.0",
     "electron-builder": "^25.1.8",

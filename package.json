@@ -16,6 +16,7 @@
     "typecheck": "turbo run typecheck",
     "start": "bun run --cwd apps/desktop start",
     "package": "bun run speechd:build:release && turbo run build && bun run --cwd apps/desktop package",
+    "package:unsigned": "bun run speechd:build:release && turbo run build && bun run --cwd apps/desktop package:unsigned",
     "speechd:build": "swift build --package-path native/speechd",
     "speechd:build:release": "swift build -c release --package-path native/speechd"
   },

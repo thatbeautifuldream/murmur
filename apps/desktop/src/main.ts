@@ -9,6 +9,7 @@ import { installTray, uninstallTray } from "./tray";
 import { closeTranscriptHistoryStore } from "./transcript-history";
 import { resolveRendererUrl } from "./app-window";
 import { startLocalServer, stopLocalServer } from "./local-server";
+import { initializeAutoUpdater } from "./updater";
 
 // Fixed footprint sized for the expanded (listening) pill, with the pill
 // itself bottom-anchored inside it via flex. Sizing the window this way
@@ -99,6 +100,7 @@ app.whenReady().then(async () => {
   installTray();
   createMainWindow();
   startSpeechd();
+  initializeAutoUpdater();
 
   stopOptionListener = listenForOptionTap(() => void toggleDictation());
 
