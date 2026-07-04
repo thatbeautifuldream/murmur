@@ -1,6 +1,6 @@
-import { GlobalKeyboardListener } from "node-global-key-listener";
+import { uIOhook, UiohookKey, type UiohookKeyboardEvent } from "uiohook-napi";
 
-const ALT_KEYS = new Set(["LEFT ALT", "RIGHT ALT"]);
+const ALT_KEYS = new Set<number>([UiohookKey.Alt, UiohookKey.AltRight]);
 
 /**
  * Fires `onTap` when Option is pressed and released on its own — not as part
@@ -8,22 +8,31 @@ const ALT_KEYS = new Set(["LEFT ALT", "RIGHT ALT"]);
  * purpose (special characters, other app shortcuts, etc).
  */
 export function listenForOptionTap(onTap: () => void): () => void {
-  const listener = new GlobalKeyboardListener();
   let comboUsed = false;
 
-  listener.addListener((event) => {
-    if (ALT_KEYS.has(event.name ?? "")) {
-      if (event.state === "DOWN") {
-        comboUsed = false;
-      } else if (event.state === "UP" && !comboUsed) {
-        onTap();
-      }
+  const onKeyDown = (event: UiohookKeyboardEvent) => {
+    if (ALT_KEYS.has(event.keycode)) {
+      comboUsed = false;
       return;
     }
-    if (event.state === "DOWN") {
+    if (event.altKey) {
       comboUsed = true;
     }
-  });
+  };
 
-  return () => listener.kill();
+  const onKeyUp = (event: UiohookKeyboardEvent) => {
+    if (ALT_KEYS.has(event.keycode) && !comboUsed) {
+      onTap();
+    }
+  };
+
+  uIOhook.on("keydown", onKeyDown);
+  uIOhook.on("keyup", onKeyUp);
+  uIOhook.start();
+
+  return () => {
+    uIOhook.off("keydown", onKeyDown);
+    uIOhook.off("keyup", onKeyUp);
+    uIOhook.stop();
+  };
 }
