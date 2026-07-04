@@ -8,6 +8,7 @@ export const IpcChannels = {
   DICTATION_STOP: "dictation:stop",
   ON_DICTATION_STATUS_CHANGED: "dictation:status-changed",
   ON_DICTATION_TRANSCRIPT: "dictation:transcript",
+  ON_DICTATION_PARTIAL_TRANSCRIPT: "dictation:partial-transcript",
   TRANSCRIPT_HISTORY_LIST: "transcript-history:list",
   TRANSCRIPT_HISTORY_DELETE: "transcript-history:delete",
   TRANSCRIPT_HISTORY_CLEAR: "transcript-history:clear",
@@ -25,9 +26,10 @@ export const LOCAL_HTTP_PORT = 47850;
 export type Theme = "light" | "dark" | "system";
 export type Platform = "darwin" | "win32" | "linux";
 
-/** `inserting` is the brief window where the transcript is being pasted into
- *  the frontmost app. */
-export type DictationStatus = "idle" | "listening" | "inserting" | "error";
+/** `processing` is the window after the mic stops and before the final
+ *  transcript comes back; `inserting` is the brief window after that where
+ *  the transcript is being pasted into the frontmost app. */
+export type DictationStatus = "idle" | "listening" | "processing" | "inserting" | "error";
 
 export interface DictationStartResult {
   ok: boolean;
@@ -72,6 +74,11 @@ export interface DesktopBridge {
    *  when stopped via the global shortcut, where there's no IPC caller
    *  around to receive `stopDictation`'s return value. */
   onDictationTranscript(listener: (text: string) => void): () => void;
+  /** Fires repeatedly while listening with the live transcript as it's
+   *  recognized, and once more with the final sentence right before
+   *  `onDictationTranscript` fires. Fires with `""` when the caption should
+   *  clear. */
+  onDictationPartialTranscript(listener: (text: string) => void): () => void;
   listTranscriptHistory(limit?: number): Promise<TranscriptHistoryEntry[]>;
   deleteTranscriptHistoryEntry(id: string): Promise<void>;
   clearTranscriptHistory(): Promise<void>;

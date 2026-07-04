@@ -55,6 +55,10 @@ final class SpeechEngine {
         }
     }
 
+    func peekLatestText() -> String {
+        latestText
+    }
+
     func stop() -> SpeechResult {
         stopEngineIfNeeded()
         return SpeechResult(text: latestText, audioPath: recordingPath)

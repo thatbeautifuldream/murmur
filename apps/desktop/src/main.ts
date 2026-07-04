@@ -16,9 +16,11 @@ import { startLocalServer, stopLocalServer } from "./local-server";
 // frameless/transparent window. The extra margin beyond the pill's own
 // size (see app-shell's padding) isn't just breathing room — the CSS box
 // shadow needs real transparent canvas to blur into, or the window's own
-// rectangular bounds hard-clip it into a visible cut edge.
-const PILL_WIDTH = 320;
-const PILL_AREA_HEIGHT = 100;
+// rectangular bounds hard-clip it into a visible cut edge. The height/width
+// also leave room above the pill for the live raw-transcript caption to
+// grow into (up to its own max-h/max-w, then it scrolls internally).
+const PILL_WIDTH = 360;
+const PILL_AREA_HEIGHT = 340;
 const BOTTOM_MARGIN = 28;
 
 function createMainWindow(): BrowserWindow {

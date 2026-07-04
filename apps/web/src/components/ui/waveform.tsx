@@ -128,6 +128,10 @@ function Waveform({
 export interface MicrophoneWaveformProps
   extends Omit<WaveformProps, "data" | "onBarClick"> {
   active?: boolean
+  /** Shows a gentle synthetic "thinking" wave instead of mic input — for the
+   *  window after the mic has stopped but before a result comes back.
+   *  Ignored while `active` is true. */
+  processing?: boolean
   fftSize?: number
   smoothingTimeConstant?: number
   sensitivity?: number
@@ -143,6 +147,7 @@ export interface MicrophoneWaveformProps
  *  this" than frequency-bin peaks) and keeps a rolling window of samples. */
 function MicrophoneWaveform({
   active = false,
+  processing = false,
   fftSize = 1024,
   smoothingTimeConstant = 0.6,
   sensitivity = 1,
@@ -160,9 +165,40 @@ function MicrophoneWaveform({
   const rafRef = React.useRef<number | null>(null)
   const lastUpdateRef = React.useRef(0)
 
+  // Synthetic "thinking" wave for the processing state — a slow sine ripple
+  // travelling across the bars, standing in for real amplitude data while
+  // there's no mic input to visualize.
+  React.useEffect(() => {
+    if (active || !processing) return
+
+    let cancelled = false
+    const start = performance.now()
+
+    const tick = (now: number) => {
+      if (cancelled) return
+      rafRef.current = requestAnimationFrame(tick)
+      if (now - lastUpdateRef.current < updateRate) return
+      lastUpdateRef.current = now
+
+      const t = (now - start) / 1000
+      setSamples(
+        Array.from({ length: barCount }, (_, i) => {
+          const phase = (i / barCount) * Math.PI * 2
+          return 0.35 + 0.25 * Math.sin(t * 2.4 + phase * 2)
+        }),
+      )
+    }
+    rafRef.current = requestAnimationFrame(tick)
+
+    return () => {
+      cancelled = true
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    }
+  }, [active, processing, barCount, updateRate])
+
   React.useEffect(() => {
     if (!active) {
-      setSamples(new Array(barCount).fill(0))
+      if (!processing) setSamples(new Array(barCount).fill(0))
       return
     }
 
@@ -192,6 +228,7 @@ function MicrophoneWaveform({
         analyserRef.current = analyser
 
         const timeData = new Uint8Array(analyser.fftSize)
+        let primed = false
         const tick = (now: number) => {
           rafRef.current = requestAnimationFrame(tick)
           if (now - lastUpdateRef.current < updateRate) return
@@ -206,7 +243,12 @@ function MicrophoneWaveform({
           const rms = Math.sqrt(sumSquares / timeData.length)
           const level = Math.min(1, rms * sensitivity * 4)
 
-          setSamples((prev) => [...prev.slice(1), level])
+          if (!primed) {
+            primed = true
+            setSamples(new Array(barCount).fill(level))
+          } else {
+            setSamples((prev) => [...prev.slice(1), level])
+          }
         }
         rafRef.current = requestAnimationFrame(tick)
       })

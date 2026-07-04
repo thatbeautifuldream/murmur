@@ -13,6 +13,8 @@ let status: DictationStatus = "idle";
 let activeLocale = "en-US";
 let startedAt: number | undefined;
 let activeRecordingPath: string | undefined;
+let partialPollTimer: NodeJS.Timeout | undefined;
+let lastPartialText = "";
 const statusListeners = new Set<(status: DictationStatus) => void>();
 
 interface FrontmostAppInfo {
@@ -35,6 +37,40 @@ function broadcastTranscript(text: string): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IpcChannels.ON_DICTATION_TRANSCRIPT, text);
   }
+}
+
+function broadcastPartialTranscript(text: string): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IpcChannels.ON_DICTATION_PARTIAL_TRANSCRIPT, text);
+  }
+}
+
+function startPartialPolling(): void {
+  lastPartialText = "";
+  partialPollTimer = setInterval(() => {
+    void fetch(`${SPEECHD_URL}/partial`)
+      .then((response) => response.json() as Promise<{ text?: string }>)
+      .then((body) => {
+        const text = body.text ?? "";
+        if (text !== lastPartialText) {
+          lastPartialText = text;
+          broadcastPartialTranscript(text);
+        }
+      })
+      .catch(() => {});
+  }, 120);
+}
+
+/** Stops polling for new partial text but deliberately leaves the last
+ *  caption broadcast in place — it keeps showing through the `processing`
+ *  state until the final transcript replaces or clears it, instead of
+ *  vanishing the instant the mic stops. */
+function stopPartialPolling(): void {
+  if (partialPollTimer) {
+    clearInterval(partialPollTimer);
+    partialPollTimer = undefined;
+  }
+  lastPartialText = "";
 }
 
 export function getDictationStatus(): DictationStatus {
@@ -64,6 +100,7 @@ export async function startDictation(locale = "en-US"): Promise<{ ok: boolean; e
     startedAt = Date.now();
     playDictationStartSound();
     setStatus("listening");
+    startPartialPolling();
     return { ok: true };
   } catch (error) {
     setStatus("error");
@@ -74,12 +111,15 @@ export async function startDictation(locale = "en-US"): Promise<{ ok: boolean; e
 export async function stopDictation(): Promise<DictationStopResult> {
   if (status !== "listening") return { text: "" };
   try {
+    stopPartialPolling();
+    setStatus("processing");
     const sourceApp = await getFrontmostAppInfo();
     const response = await fetch(`${SPEECHD_URL}/stop`, { method: "POST" });
     const body = (await response.json()) as { text?: string; audioPath?: string };
     const text = body.text ?? "";
     const audioPath = body.audioPath || activeRecordingPath || null;
     if (text) {
+      broadcastPartialTranscript(text);
       setStatus("inserting");
       await insertAtCursor(text);
       try {
@@ -99,8 +139,10 @@ export async function stopDictation(): Promise<DictationStopResult> {
         console.error("murmur: failed to save transcript history", error);
       }
       broadcastTranscript(text);
+      broadcastPartialTranscript("");
     } else {
       deleteFileIfPresent(audioPath);
+      broadcastPartialTranscript("");
     }
     activeRecordingPath = undefined;
     startedAt = undefined;
@@ -108,6 +150,8 @@ export async function stopDictation(): Promise<DictationStopResult> {
     setStatus("idle");
     return { text };
   } catch {
+    stopPartialPolling();
+    broadcastPartialTranscript("");
     deleteFileIfPresent(activeRecordingPath);
     activeRecordingPath = undefined;
     startedAt = undefined;

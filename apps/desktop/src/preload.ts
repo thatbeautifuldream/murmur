@@ -40,6 +40,11 @@ const bridge: DesktopBridge = {
     ipcRenderer.on(IpcChannels.ON_DICTATION_TRANSCRIPT, wrapped);
     return () => ipcRenderer.removeListener(IpcChannels.ON_DICTATION_TRANSCRIPT, wrapped);
   },
+  onDictationPartialTranscript: (listener) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, text: string) => listener(text);
+    ipcRenderer.on(IpcChannels.ON_DICTATION_PARTIAL_TRANSCRIPT, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.ON_DICTATION_PARTIAL_TRANSCRIPT, wrapped);
+  },
   onTranscriptHistoryChanged: (listener) => {
     const wrapped = () => listener();
     ipcRenderer.on(IpcChannels.ON_TRANSCRIPT_HISTORY_CHANGED, wrapped);

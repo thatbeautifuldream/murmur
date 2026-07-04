@@ -14,7 +14,7 @@ let tray: Tray | undefined;
 let removeStatusListener: (() => void) | undefined;
 
 function traySymbol(status: DictationStatus): string {
-  return status === "listening" || status === "inserting"
+  return status === "listening" || status === "processing" || status === "inserting"
     ? ACTIVE_TRAY_SYMBOL
     : INACTIVE_TRAY_SYMBOL;
 }
@@ -42,6 +42,7 @@ function createMenuIcon(status = getDictationStatus()): NativeImage | undefined 
 
 function statusLabel(status: DictationStatus): string {
   if (status === "listening") return "Stop Dictation";
+  if (status === "processing") return "Processing...";
   if (status === "inserting") return "Inserting...";
   return "Start Dictation";
 }
@@ -59,7 +60,7 @@ function openTrayMenu(): void {
     {
       label: statusLabel(status),
       icon: createMenuIcon(status),
-      enabled: status !== "inserting",
+      enabled: status !== "processing" && status !== "inserting",
       click: () => void toggleDictation(),
     },
     { type: "separator" },
