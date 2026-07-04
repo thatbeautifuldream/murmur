@@ -4,7 +4,8 @@ import * as React from "react"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { CheckIcon, ChevronRightIcon } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Tick02Icon, ChevronRightIcon } from "@hugeicons/core-free-icons"
 
 function DropdownMenu({
   ...props
@@ -111,7 +112,7 @@ function DropdownMenuCheckboxItem({
       {...props}
     >
       <DropdownMenuPrimitive.ItemIndicator className="col-start-1 -ms-0.5">
-        <CheckIcon className="size-3.5" />
+        <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
       </DropdownMenuPrimitive.ItemIndicator>
       <span className="col-start-2">{children}</span>
     </DropdownMenuPrimitive.CheckboxItem>
@@ -148,7 +149,7 @@ function DropdownMenuRadioItem({
       {...props}
     >
       <DropdownMenuPrimitive.ItemIndicator className="col-start-1 -ms-0.5">
-        <CheckIcon className="size-3.5" />
+        <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
       </DropdownMenuPrimitive.ItemIndicator>
       <span className="col-start-2">{children}</span>
     </DropdownMenuPrimitive.RadioItem>
@@ -230,7 +231,7 @@ function DropdownMenuSubTrigger({
       {...props}
     >
       {children}
-      <ChevronRightIcon className="ms-auto -me-0.5 opacity-80" />
+      <HugeiconsIcon icon={ChevronRightIcon} className="ms-auto -me-0.5 opacity-80" />
     </DropdownMenuPrimitive.SubTrigger>
   )
 }

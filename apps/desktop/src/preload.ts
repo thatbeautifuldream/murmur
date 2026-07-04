@@ -45,6 +45,13 @@ const bridge: DesktopBridge = {
     ipcRenderer.on(IpcChannels.ON_TRANSCRIPT_HISTORY_CHANGED, wrapped);
     return () => ipcRenderer.removeListener(IpcChannels.ON_TRANSCRIPT_HISTORY_CHANGED, wrapped);
   },
+  isFullScreen: () => ipcRenderer.invoke(IpcChannels.WINDOW_GET_FULLSCREEN),
+  onFullScreenChanged: (listener) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, isFullScreen: boolean) =>
+      listener(isFullScreen);
+    ipcRenderer.on(IpcChannels.ON_WINDOW_FULLSCREEN_CHANGED, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.ON_WINDOW_FULLSCREEN_CHANGED, wrapped);
+  },
 };
 
 contextBridge.exposeInMainWorld("desktopBridge", bridge);

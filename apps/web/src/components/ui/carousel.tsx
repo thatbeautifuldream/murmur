@@ -5,7 +5,8 @@ import useEmblaCarousel, {
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ChevronLeftIcon, ChevronRightIcon } from "@hugeicons/core-free-icons"
 
 type CarouselApi = UseEmblaCarouselType[1]
 type UseCarouselParameters = Parameters<typeof useEmblaCarousel>
@@ -193,7 +194,7 @@ function CarouselPrevious({
       onClick={scrollPrev}
       {...props}
     >
-      <ChevronLeftIcon />
+      <HugeiconsIcon icon={ChevronLeftIcon} />
       <span className="sr-only">Previous slide</span>
     </Button>
   )
@@ -223,7 +224,7 @@ function CarouselNext({
       onClick={scrollNext}
       {...props}
     >
-      <ChevronRightIcon />
+      <HugeiconsIcon icon={ChevronRightIcon} />
       <span className="sr-only">Next slide</span>
     </Button>
   )

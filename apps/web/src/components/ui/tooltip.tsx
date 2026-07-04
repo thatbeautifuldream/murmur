@@ -42,7 +42,7 @@ function TooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          "relative z-50 w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin) text-balance rounded-md border bg-popover not-dark:bg-clip-padding px-2 py-1 text-popover-foreground text-xs shadow-md/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-md)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-[state=delayed-open]:scale-100 data-[state=delayed-open]:opacity-100 data-[state=instant-open]:scale-100 data-[state=instant-open]:opacity-100 data-[state=closed]:scale-98 data-[state=closed]:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+          "relative z-50 w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin) text-balance rounded-md squircle border bg-popover not-dark:bg-clip-padding px-2 py-1 text-popover-foreground text-xs shadow-md/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-md)-1px)] before:squircle before:shadow-[0_1px_--theme(--color-black/4%)] data-[state=delayed-open]:scale-100 data-[state=delayed-open]:opacity-100 data-[state=instant-open]:scale-100 data-[state=instant-open]:opacity-100 data-[state=closed]:scale-98 data-[state=closed]:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
           className,
         )}
         {...props}

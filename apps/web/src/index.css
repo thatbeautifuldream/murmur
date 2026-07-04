@@ -1,10 +1,21 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant fixed (&:is(.layout-fixed *));
+
+/* Self-hosted from the original rsms/inter release rather than
+ * @fontsource-variable/inter — the Google Fonts build that package ships
+ * strips Inter's character-variant/stylistic-set features (cv02/cv03/cv04/
+ * cv11/ss01/ss03 below), including the single-story "a" alternate. */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./assets/fonts/InterVariable.woff2") format("woff2-variations");
+}
 
 @theme inline {
   --breakpoint-3xl: 1600px;
@@ -12,8 +23,9 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans:
-    "Geist Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
+  --font-sans--font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01", "ss03";
   --font-heading: var(--font-sans);
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -410,61 +422,38 @@
   animation: fade-in-up 0.6s ease-out both;
 }
 
-/* Dictation pill — card-resize transition (transitions.dev), tuned
-   asymmetric: expand reads as an immediate reaction to the hotkey (Fast),
-   collapse is quieter (Quick) so it doesn't feel like it's slamming shut. */
+/* Dictation pill design tokens — the actual expand/collapse animation is
+ * driven by Motion (see apps/web/src/routes/index.tsx), this is just the
+ * expanded-state paint: a top-to-bottom sheen (not flat fill), an inner top
+ * highlight + bottom shade for a subtle bevel, a hairline ring in place of a
+ * solid border, and one restrained ambient shadow — this pill is the only
+ * visible surface on a transparent window, so the shadow has to stay well
+ * inside the window's own bounds (see app-shell padding) or the window edge
+ * hard-clips it into a visible rectangular cut. Keep this understated rather
+ * than reaching for a bigger, more dramatic spread. */
 :root {
-  --pill-resize-dur-expand: 250ms;
-  --pill-resize-dur-collapse: 150ms;
-  --pill-resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.t-pill {
-  width: 56px;
-  height: 4px;
-  border-radius: 9999px;
-  background: color-mix(in srgb, var(--foreground) 20%, transparent);
-  transition:
-    width var(--pill-resize-dur-collapse) var(--pill-resize-ease),
-    height var(--pill-resize-dur-collapse) var(--pill-resize-ease),
-    background var(--pill-resize-dur-collapse) var(--pill-resize-ease),
-    box-shadow var(--pill-resize-dur-collapse) var(--pill-resize-ease);
-  will-change: width, height;
-}
-
-/* Premium floating-object treatment: a top-to-bottom sheen (not flat fill),
-   an inner top highlight + bottom shade for a subtle bevel, a hairline ring
-   in place of a solid border, and one restrained ambient shadow — this pill
-   is the only visible surface on a transparent window, so the shadow has to
-   stay well inside the window's own bounds (see app-shell padding) or the
-   window edge hard-clips it into a visible rectangular cut. Keep this
-   understated rather than reaching for a bigger, more dramatic spread. */
-.t-pill[data-expanded="true"] {
-  width: 240px;
-  height: 44px;
-  background: linear-gradient(
+  --pill-bg-expanded: linear-gradient(
     180deg,
     color-mix(in srgb, var(--popover) 100%, white 10%) 0%,
     var(--popover) 55%,
     color-mix(in srgb, var(--popover) 100%, black 4%) 100%
   );
-  box-shadow:
+  --pill-shadow-expanded:
     0 1px 0 0 color-mix(in srgb, white 40%, transparent) inset,
     0 -1px 0 0 color-mix(in srgb, black 6%, transparent) inset,
     0 0 0 1px color-mix(in srgb, var(--foreground) 8%, transparent),
     0 1px 2px color-mix(in srgb, black 10%, transparent),
     0 6px 14px -8px color-mix(in srgb, black 30%, transparent);
-  transition-duration: var(--pill-resize-dur-expand);
 }
 
-.dark .t-pill[data-expanded="true"] {
-  background: linear-gradient(
+.dark {
+  --pill-bg-expanded: linear-gradient(
     180deg,
     color-mix(in srgb, var(--popover) 100%, white 6%) 0%,
     var(--popover) 55%,
     color-mix(in srgb, var(--popover) 100%, black 12%) 100%
   );
-  box-shadow:
+  --pill-shadow-expanded:
     0 1px 0 0 color-mix(in srgb, white 8%, transparent) inset,
     0 -1px 0 0 color-mix(in srgb, black 30%, transparent) inset,
     0 0 0 1px color-mix(in srgb, white 10%, transparent),
@@ -472,32 +461,10 @@
     0 6px 16px -8px color-mix(in srgb, black 50%, transparent);
 }
 
-.t-pill-content {
-  opacity: 0;
-  transition: opacity 150ms ease-in-out;
-}
-
-.t-pill[data-expanded="true"] .t-pill-content {
-  opacity: 1;
-  transition-delay: 100ms;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .t-pill,
-  .t-pill-content {
-    transition: none !important;
-  }
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
     scrollbar-width: none;
-    /* Continuous squircle curvature instead of a circular arc on every
-       rounded corner — a no-op without border-radius. Chromium shipped
-       corner-shape well after 130; confirmed working on Electron 43
-       (Chromium 150), which is what this app now targets. */
-    corner-shape: squircle;
   }
 
   *::-webkit-scrollbar {
@@ -539,4 +506,60 @@
 
 @utility container {
   @apply mx-auto max-w-[1416px] px-4 lg:px-6;
+}
+
+/* Continuous squircle curvature instead of a circular arc — opt-in per
+ * rounded element (apply alongside `rounded-*`) rather than a blanket `*`
+ * rule. Chromium shipped corner-shape well after 130; confirmed working on
+ * Electron 43 (Chromium 150), which is what this app now targets.
+ *
+ * When a component also draws a 1px-inset bevel highlight on a `::before`
+ * (card.tsx, dialog.tsx, button.tsx, etc.), apply `before:squircle` too —
+ * otherwise that pseudo-element rounds as a plain circular arc while its
+ * real parent border rounds as a squircle, and the two nested,
+ * differently-curved edges read as a visible "double border" at the
+ * corners. */
+@utility squircle {
+  corner-shape: squircle;
+}
+
+/* History row surface: same recipe as .t-pill (top-to-bottom sheen, inset
+ * top highlight + bottom shade, soft ambient shadow) scaled down for a list
+ * row instead of a floating pill — reuses --card as the base tone so it
+ * stays a hair lighter than the page in dark mode and flush with it in
+ * light mode, per the "never darker than canvas" shadow rule.
+ *
+ * The hairline edge is a real `border` (see history.tsx's `variant="outline"`
+ * on the Item), not a box-shadow ring — a non-inset box-shadow is a
+ * synthesized offset shape, and Chromium doesn't extend `corner-shape:
+ * squircle` to that synthesis the way it does to the element's own
+ * border/background. Using an actual border keeps it locked to the same
+ * squircle curve as the rest of the card instead of drawing a visibly
+ * different (circular-arc) curve at the corners. */
+@utility transcript-card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card) 100%, white 6%) 0%,
+    var(--card) 60%,
+    color-mix(in srgb, var(--card) 100%, black 2%) 100%
+  );
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, white 45%, transparent) inset,
+    0 -1px 0 0 color-mix(in srgb, black 4%, transparent) inset,
+    0 1px 2px color-mix(in srgb, black 5%, transparent),
+    0 4px 10px -6px color-mix(in srgb, black 10%, transparent);
+
+  @variant dark {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--card) 100%, white 4%) 0%,
+      var(--card) 55%,
+      color-mix(in srgb, var(--card) 100%, black 12%) 100%
+    );
+    box-shadow:
+      0 1px 0 0 color-mix(in srgb, white 6%, transparent) inset,
+      0 -1px 0 0 color-mix(in srgb, black 26%, transparent) inset,
+      0 1px 2px color-mix(in srgb, black 30%, transparent),
+      0 6px 14px -8px color-mix(in srgb, black 40%, transparent);
+  }
 }

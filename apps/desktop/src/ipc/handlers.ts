@@ -24,6 +24,11 @@ export function registerIpcHandlers(): void {
     readTranscriptAudio(id),
   );
 
+  ipcMain.handle(
+    IpcChannels.WINDOW_GET_FULLSCREEN,
+    (event) => BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false,
+  );
+
   ipcMain.handle(IpcChannels.GET_APP_VERSION, () => app.getVersion());
 
   ipcMain.handle(IpcChannels.PICK_FOLDER, async () => {

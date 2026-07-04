@@ -5,7 +5,8 @@ import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { XIcon } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -88,7 +89,7 @@ function SheetContent({
               size="icon"
               className="absolute end-2 top-[calc(env(safe-area-inset-top)+--spacing(2))]"
             >
-              <XIcon />
+              <HugeiconsIcon icon={Cancel01Icon} />
               <span className="sr-only">Close</span>
             </Button>
           </SheetPrimitive.Close>

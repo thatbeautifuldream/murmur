@@ -13,6 +13,8 @@ export const IpcChannels = {
   TRANSCRIPT_HISTORY_CLEAR: "transcript-history:clear",
   TRANSCRIPT_HISTORY_READ_AUDIO: "transcript-history:read-audio",
   ON_TRANSCRIPT_HISTORY_CHANGED: "transcript-history:changed",
+  WINDOW_GET_FULLSCREEN: "window:get-fullscreen",
+  ON_WINDOW_FULLSCREEN_CHANGED: "window:fullscreen-changed",
 } as const;
 
 /** Port for the localhost HTTP API the desktop app exposes so a plain
@@ -78,6 +80,10 @@ export interface DesktopBridge {
    *  is missing. */
   readTranscriptAudio(id: string): Promise<string | null>;
   onTranscriptHistoryChanged(listener: () => void): () => void;
+  /** Whether the app window is currently native macOS full screen — the OS
+   *  hides the traffic-light controls in that state. */
+  isFullScreen(): Promise<boolean>;
+  onFullScreenChanged(listener: (isFullScreen: boolean) => void): () => void;
 }
 
 declare global {

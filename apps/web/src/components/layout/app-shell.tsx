@@ -1,5 +1,6 @@
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { useSidebarHotkey } from "@/hooks/use-sidebar-hotkey";
 
 /** Murmur runs two kinds of windows off the same renderer bundle: the
  *  frameless, transparent, bottom-anchored dictation pill (see
@@ -8,6 +9,9 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
  *  apps/desktop/src/app-window.ts). */
 export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Registered once here rather than per-page, since useSidebarChrome() (used
+  // by every page for its own Titlebar) is called many times over.
+  useSidebarHotkey();
 
   if (pathname === "/") {
     return (
@@ -18,11 +22,9 @@ export function AppShell() {
   }
 
   return (
-    <div className="isolate flex h-dvh bg-background text-foreground">
+    <div className="@container/shell isolate flex h-dvh bg-background text-foreground">
       <AppSidebar />
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <Outlet />
-      </div>
+      <Outlet />
     </div>
   );
 }

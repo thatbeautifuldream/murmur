@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { format, isToday, isYesterday } from "date-fns";
-import { AppWindow, Clock, Copy, History as HistoryIcon, Pause, Play, Trash2 } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  BrowserIcon,
+  Clock01Icon,
+  Copy01Icon,
+  Delete02Icon,
+  HistoryIcon,
+  PauseIcon,
+  PlayIcon,
+} from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import type { TranscriptHistoryEntry } from "@app/contracts";
 import { getHistoryBridge } from "@/desktopBridge";
+import { useSidebarChrome } from "@/hooks/use-sidebar-chrome";
+import { Titlebar } from "@/components/layout/titlebar";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
@@ -67,6 +78,7 @@ function useTranscriptHistory() {
 }
 
 function HistoryRoute() {
+  const chrome = useSidebarChrome();
   const { entries, loaded, unreachable } = useTranscriptHistory();
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -114,60 +126,67 @@ function HistoryRoute() {
   }, []);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-5 p-8">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-baseline gap-2.5">
-          <h1 className="text-lg font-semibold tracking-tight">History</h1>
+    <main className="relative flex h-full min-w-0 flex-1 flex-col bg-background">
+      <Titlebar
+        sidebarDocked={chrome.sidebarDocked}
+        showTrafficGutter={chrome.showTrafficGutter}
+        onToggleSidebar={chrome.toggleSidebar}
+      >
+        <div className="flex min-w-0 items-baseline gap-2.5">
+          <h1 className="min-w-0 truncate text-sm font-medium text-foreground">History</h1>
           {loaded && entries.length > 0 && (
             <span className="text-sm text-muted-foreground tabular-nums">{entries.length}</span>
           )}
         </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Clear all history"
-              disabled={entries.length === 0}
-            >
-              <Trash2 />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Clear all history?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This permanently deletes every saved transcript and its recorded audio. This
-                can't be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={handleClearAll}>
-                Clear history
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+        <div className="ml-auto flex items-center gap-1">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Clear all history"
+                disabled={entries.length === 0}
+              >
+                <HugeiconsIcon icon={Delete02Icon} />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear all history?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently deletes every saved transcript and its recorded audio. This
+                  can't be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" onClick={handleClearAll}>
+                  Clear history
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </Titlebar>
 
-      {loaded && entries.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <HistoryIcon />
-            </EmptyMedia>
-            <EmptyTitle>{unreachable ? "Can't reach Murmur" : "No history yet"}</EmptyTitle>
-            <EmptyDescription>
-              {unreachable
-                ? "Make sure the Murmur desktop app is running on this Mac, then refresh."
-                : "Tap Option anywhere to dictate — your transcripts will show up here."}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <ItemGroup>
-          {entries.map((entry) => {
+      <div className="min-h-0 flex-1 overflow-y-auto p-8 pt-0">
+        {loaded && entries.length === 0 ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <HugeiconsIcon icon={HistoryIcon} />
+              </EmptyMedia>
+              <EmptyTitle>{unreachable ? "Can't reach Murmur" : "No history yet"}</EmptyTitle>
+              <EmptyDescription>
+                {unreachable
+                  ? "Make sure the Murmur desktop app is running on this Mac, then refresh."
+                  : "Tap Option anywhere to dictate — your transcripts will show up here."}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <ItemGroup>
+            {entries.map((entry) => {
             const createdAt = new Date(entry.createdAt);
             const duration = formatDuration(entry.durationMs);
             const isPlaying = playingId === entry.id;
@@ -176,7 +195,7 @@ function HistoryRoute() {
               <Item
                 key={entry.id}
                 variant="outline"
-                className="flex-col items-stretch gap-3 px-4 py-3.5"
+                className="transcript-card flex-col items-stretch gap-3 rounded-xl squircle px-4 py-3.5"
               >
                 <ItemContent>
                   <ItemTitle className="line-clamp-none text-sm leading-relaxed font-normal text-pretty">
@@ -186,10 +205,10 @@ function HistoryRoute() {
 
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-                    <AppWindow className="size-4 shrink-0" />
+                    <HugeiconsIcon icon={BrowserIcon} className="size-4 shrink-0" />
                     <span className="truncate">{entry.sourceAppName ?? "Unknown app"}</span>
                     <span aria-hidden="true">&middot;</span>
-                    <Clock className="size-4 shrink-0" />
+                    <HugeiconsIcon icon={Clock01Icon} className="size-4 shrink-0" />
                     <span>{formatDay(createdAt)}</span>
                     <span aria-hidden="true">&middot;</span>
                     <span className="tabular-nums">{format(createdAt, "h:mm a")}</span>
@@ -208,7 +227,7 @@ function HistoryRoute() {
                       aria-label="Copy transcript"
                       onClick={() => handleCopy(entry.text)}
                     >
-                      <Copy />
+                      <HugeiconsIcon icon={Copy01Icon} />
                     </Button>
                     <Button
                       variant="ghost"
@@ -217,24 +236,46 @@ function HistoryRoute() {
                       disabled={!entry.audioPath}
                       onClick={() => void handlePlay(entry)}
                     >
-                      {isPlaying ? <Pause /> : <Play />}
+                      {isPlaying ? <HugeiconsIcon icon={PauseIcon} /> : <HugeiconsIcon icon={PlayIcon} />}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Delete transcript"
-                      className="hover:bg-destructive/10 hover:text-destructive-foreground"
-                      onClick={() => handleDelete(entry.id)}
-                    >
-                      <Trash2 />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Delete transcript"
+                          className="hover:bg-destructive/10 hover:text-destructive-foreground"
+                        >
+                          <HugeiconsIcon icon={Delete02Icon} />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this transcript?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This permanently deletes the transcript and its recorded audio. This
+                            can't be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            variant="destructive"
+                            onClick={() => handleDelete(entry.id)}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </Item>
-            );
-          })}
-        </ItemGroup>
-      )}
-    </div>
+              );
+            })}
+          </ItemGroup>
+        )}
+      </div>
+    </main>
   );
 }

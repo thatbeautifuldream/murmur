@@ -7,5 +7,6 @@ export type TKeyboardShortcut = {
 // themselves are registered at their call sites via useHotkey.
 export const KEYBOARD_SHORTCUTS: TKeyboardShortcut[] = [
   { keys: ["Mod", "/"], description: "Show keyboard shortcuts" },
+  { keys: ["Mod", "B"], description: "Show or hide the sidebar" },
   { keys: ["Alt"], description: "Start or stop dictation (from any app)" },
 ];

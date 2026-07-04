@@ -5,7 +5,8 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { XIcon } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
 
 function Dialog({
   ...props
@@ -61,7 +62,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border bg-popover not-dark:bg-clip-padding p-6 text-popover-foreground shadow-lg/5 outline-none transition-[scale,opacity] duration-200 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-2xl)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-[state=open]:scale-100 data-[state=open]:opacity-100 data-[state=closed]:scale-98 data-[state=closed]:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl squircle border bg-popover not-dark:bg-clip-padding p-6 text-popover-foreground shadow-lg/5 outline-none transition-[scale,opacity] duration-200 ease-out before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-2xl)-1px)] before:squircle before:shadow-[0_1px_--theme(--color-black/4%)] data-[state=open]:scale-100 data-[state=open]:opacity-100 data-[state=closed]:scale-98 data-[state=closed]:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
           className,
         )}
         {...props}
@@ -75,7 +76,7 @@ function DialogContent({
               size="icon-sm"
               className="absolute end-3 top-3"
             >
-              <XIcon />
+              <HugeiconsIcon icon={Cancel01Icon} />
               <span className="sr-only">Close</span>
             </Button>
           </DialogPrimitive.Close>

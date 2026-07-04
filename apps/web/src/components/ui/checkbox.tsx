@@ -4,7 +4,8 @@ import * as React from "react"
 import { Checkbox as CheckboxPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { CheckIcon, MinusIcon } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Tick02Icon, Remove01Icon } from "@hugeicons/core-free-icons"
 
 function Checkbox({
   className,
@@ -24,9 +25,9 @@ function Checkbox({
         className="absolute -inset-px flex items-center justify-center rounded-[.25rem] text-primary-foreground data-[state=unchecked]:hidden data-[state=checked]:bg-primary data-[state=indeterminate]:text-foreground data-[state=indeterminate]:bg-transparent"
       >
         {props.checked === "indeterminate" ? (
-          <MinusIcon className="size-3.5 sm:size-3" />
+          <HugeiconsIcon icon={Remove01Icon} className="size-3.5 sm:size-3" />
         ) : (
-          <CheckIcon className="size-3.5 sm:size-3" />
+          <HugeiconsIcon icon={Tick02Icon} className="size-3.5 sm:size-3" />
         )}
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>

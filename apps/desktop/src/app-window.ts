@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from "electron";
 import * as path from "node:path";
 import * as url from "node:url";
+import { IpcChannels } from "@app/contracts";
 
 const isDev = !app.isPackaged;
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -58,4 +59,12 @@ export function openAppWindow(hash = "/history"): void {
   appWindow.on("closed", () => {
     appWindow = undefined;
   });
+
+  // macOS hides the traffic-light controls in full screen — tell the
+  // renderer so it can reclaim the gutter reserved for them.
+  const emitFullScreen = (value: boolean) => {
+    appWindow?.webContents.send(IpcChannels.ON_WINDOW_FULLSCREEN_CHANGED, value);
+  };
+  appWindow.on("enter-full-screen", () => emitFullScreen(true));
+  appWindow.on("leave-full-screen", () => emitFullScreen(false));
 }

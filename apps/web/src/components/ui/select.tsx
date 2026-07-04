@@ -5,12 +5,8 @@ import { Select as SelectPrimitive } from "radix-ui"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
-import {
-  ChevronDownIcon,
-  CheckIcon,
-  ChevronUpIcon,
-  ChevronsUpDownIcon,
-} from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ChevronDownIcon, Tick02Icon, ChevronUpIcon, UnfoldMoreIcon } from "@hugeicons/core-free-icons"
 
 function Select({
   ...props
@@ -68,7 +64,7 @@ function SelectTrigger({
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronsUpDownIcon className="-me-1 size-4.5 opacity-80 sm:size-4" />
+        <HugeiconsIcon icon={UnfoldMoreIcon} className="-me-1 size-4.5 opacity-80 sm:size-4" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )
@@ -141,7 +137,7 @@ function SelectItem({
     >
       <span className="col-start-1 inline-flex">
         <SelectPrimitive.ItemIndicator>
-          <CheckIcon />
+          <HugeiconsIcon icon={Tick02Icon} />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText className="col-start-2 min-w-0 truncate">
@@ -177,7 +173,7 @@ function SelectScrollUpButton({
       )}
       {...props}
     >
-      <ChevronUpIcon />
+      <HugeiconsIcon icon={ChevronUpIcon} />
     </SelectPrimitive.ScrollUpButton>
   )
 }
@@ -195,7 +191,7 @@ function SelectScrollDownButton({
       )}
       {...props}
     >
-      <ChevronDownIcon />
+      <HugeiconsIcon icon={ChevronDownIcon} />
     </SelectPrimitive.ScrollDownButton>
   )
 }
