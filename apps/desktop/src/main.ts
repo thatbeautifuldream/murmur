@@ -1,19 +1,15 @@
-import { app, BrowserWindow, globalShortcut } from "electron";
+import { app, BrowserWindow } from "electron";
 import * as path from "node:path";
 import * as url from "node:url";
 import { IpcChannels } from "@app/contracts";
 import { registerIpcHandlers } from "./ipc/handlers";
 import { toggleDictation } from "./dictation";
+import { listenForOptionTap } from "./option-key-listener";
 import {
   TRAFFIC_LIGHT_POSITION,
   installApplicationMenu,
   broadcastZoom,
 } from "./window-chrome";
-
-// Option+Space — toggles dictation from anywhere, not just while Murmur is
-// focused, since the whole point is inserting text into whatever app has
-// the cursor.
-const DICTATION_SHORTCUT = "Alt+Space";
 
 const isDev = !app.isPackaged;
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -32,10 +28,14 @@ const TITLEBAR_HEIGHT = 40;
 function createMainWindow(): BrowserWindow {
   const isMac = process.platform === "darwin";
   const window = new BrowserWindow({
-    width: 1100,
-    height: 720,
+    width: 380,
+    height: 520,
+    minWidth: 320,
+    minHeight: 420,
     title: "Murmur",
     backgroundColor: "#0a0a0a",
+    alwaysOnTop: true,
+    skipTaskbar: true,
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
     // Constant position centered in the header row. The renderer keeps its
     // titlebar at native size on zoom so this line always matches (window-chrome).
@@ -54,6 +54,12 @@ function createMainWindow(): BrowserWindow {
       sandbox: true,
     },
   });
+
+  // Float over full-screen apps too, since dictation needs to work no matter
+  // what has focus.
+  if (isMac) {
+    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  }
 
   // Tell the renderer when full-screen toggles so it can hide the traffic-light
   // gutter — macOS removes the window controls in full screen.
@@ -77,12 +83,14 @@ function createMainWindow(): BrowserWindow {
   return window;
 }
 
+let stopOptionListener: (() => void) | undefined;
+
 app.whenReady().then(() => {
   registerIpcHandlers();
   installApplicationMenu();
   createMainWindow();
 
-  globalShortcut.register(DICTATION_SHORTCUT, () => void toggleDictation());
+  stopOptionListener = listenForOptionTap(() => void toggleDictation());
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -92,7 +100,7 @@ app.whenReady().then(() => {
 });
 
 app.on("will-quit", () => {
-  globalShortcut.unregisterAll();
+  stopOptionListener?.();
 });
 
 app.on("window-all-closed", () => {

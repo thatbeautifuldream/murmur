@@ -50,7 +50,7 @@ export interface DesktopBridge {
    *  returns the final transcript text. */
   stopDictation(): Promise<DictationStopResult>;
   /** Current state, and pushed updates — also driven by the global shortcut
-   *  (Option+Space), which the dictation button has no other way to see. */
+   *  (a tap of Option), which the dictation button has no other way to see. */
   onDictationStatusChanged(listener: (status: DictationStatus) => void): () => void;
   /** Fires with the final transcript whenever dictation stops — including
    *  when stopped via the global shortcut, where there's no IPC caller

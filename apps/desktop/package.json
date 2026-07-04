@@ -17,7 +17,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "node-global-key-listener": "^0.3.0"
   },
   "devDependencies": {
     "@app/contracts": "workspace:*",

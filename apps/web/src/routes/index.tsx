@@ -53,7 +53,7 @@ function useDictation() {
 }
 
 /** Murmur's whole app: one mic button, a live waveform, and the last
- *  transcript. Option+Space toggles the same state from anywhere — this
+ *  transcript. Tapping Option toggles the same state from anywhere — this
  *  view is just a visible surface for it, not the only way to drive it. */
 function DictationRoute() {
   const { status, transcript } = useDictation();
@@ -133,7 +133,7 @@ function DictationRoute() {
         />
 
         <p className="text-xs text-muted-foreground">
-          <kbd className="font-mono">⌥ Space</kbd> to toggle from anywhere
+          Tap <kbd className="font-mono">⌥</kbd> to toggle from anywhere
         </p>
       </div>
 
