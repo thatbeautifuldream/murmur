@@ -20,14 +20,6 @@ export function registerIpcHandlers(): void {
     await shell.openExternal(target);
   });
 
-  ipcMain.handle(IpcChannels.GET_FULLSCREEN, (event) => {
-    return BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false;
-  });
-
-  ipcMain.handle(IpcChannels.GET_ZOOM_FACTOR, (event) => {
-    return event.sender.getZoomFactor();
-  });
-
   ipcMain.handle(IpcChannels.SET_THEME, (_event, theme: Theme) => {
     nativeTheme.themeSource = theme;
   });

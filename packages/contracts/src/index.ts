@@ -4,10 +4,6 @@ export const IpcChannels = {
   OPEN_EXTERNAL: "shell:open-external",
   SET_THEME: "theme:set",
   ON_THEME_CHANGED: "theme:changed",
-  GET_FULLSCREEN: "window:get-fullscreen",
-  ON_FULLSCREEN_CHANGED: "window:fullscreen-changed",
-  GET_ZOOM_FACTOR: "window:get-zoom",
-  ON_ZOOM_CHANGED: "window:zoom-changed",
   DICTATION_START: "dictation:start",
   DICTATION_STOP: "dictation:stop",
   ON_DICTATION_STATUS_CHANGED: "dictation:status-changed",
@@ -37,13 +33,6 @@ export interface DesktopBridge {
   openExternal(url: string): Promise<void>;
   setTheme(theme: Theme): Promise<void>;
   onThemeChanged(listener: (theme: Theme) => void): () => void;
-  /** Current macOS full-screen state — used to hide the traffic-light gutter. */
-  isFullScreen(): Promise<boolean>;
-  onFullScreenChanged(listener: (isFullScreen: boolean) => void): () => void;
-  /** Renderer zoom factor — used to keep the titlebar at native size so it
-   *  stays aligned with the constant traffic lights. */
-  getZoomFactor(): Promise<number>;
-  onZoomChanged(listener: (factor: number) => void): () => void;
   /** Starts mic capture + live recognition in murmur-speechd. */
   startDictation(locale?: string): Promise<DictationStartResult>;
   /** Stops capture, pastes the transcript into the frontmost app, and

@@ -1,15 +1,10 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, screen } from "electron";
 import * as path from "node:path";
 import * as url from "node:url";
-import { IpcChannels } from "@app/contracts";
 import { registerIpcHandlers } from "./ipc/handlers";
 import { toggleDictation } from "./dictation";
 import { listenForOptionTap } from "./option-key-listener";
-import {
-  TRAFFIC_LIGHT_POSITION,
-  installApplicationMenu,
-  broadcastZoom,
-} from "./window-chrome";
+import { installApplicationMenu } from "./window-chrome";
 
 const isDev = !app.isPackaged;
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -23,30 +18,32 @@ function resolveRendererIndex(): string {
   return path.join(__dirname, "..", "..", "web", "dist", "index.html");
 }
 
-const TITLEBAR_HEIGHT = 40;
+// Fixed footprint sized for the expanded (listening) pill, with the pill
+// itself bottom-anchored inside it via flex. Sizing the window this way
+// instead of resizing on state change avoids OS-level resize jank on a
+// frameless/transparent window.
+const PILL_WIDTH = 280;
+const PILL_AREA_HEIGHT = 72;
+const BOTTOM_MARGIN = 28;
 
 function createMainWindow(): BrowserWindow {
   const isMac = process.platform === "darwin";
+  const { workArea } = screen.getPrimaryDisplay();
+
   const window = new BrowserWindow({
-    width: 380,
-    height: 520,
-    minWidth: 320,
-    minHeight: 420,
+    width: PILL_WIDTH,
+    height: PILL_AREA_HEIGHT,
+    x: Math.round(workArea.x + (workArea.width - PILL_WIDTH) / 2),
+    y: Math.round(workArea.y + workArea.height - PILL_AREA_HEIGHT - BOTTOM_MARGIN),
     title: "Murmur",
-    backgroundColor: "#0a0a0a",
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    backgroundColor: "#00000000",
     alwaysOnTop: true,
+    resizable: false,
     skipTaskbar: true,
-    titleBarStyle: isMac ? "hiddenInset" : "hidden",
-    // Constant position centered in the header row. The renderer keeps its
-    // titlebar at native size on zoom so this line always matches (window-chrome).
-    trafficLightPosition: isMac ? TRAFFIC_LIGHT_POSITION : undefined,
-    titleBarOverlay: isMac
-      ? undefined
-      : {
-          color: "#0a0a0a",
-          symbolColor: "#f5f5f5",
-          height: TITLEBAR_HEIGHT,
-        },
+    fullscreenable: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -55,27 +52,21 @@ function createMainWindow(): BrowserWindow {
     },
   });
 
-  // Float over full-screen apps too, since dictation needs to work no matter
-  // what has focus.
-  if (isMac) {
+  // Float over full-screen apps and every Space, since dictation needs to
+  // work no matter what has focus. macOS treats a full-screen app as its own
+  // Space, so this has to be reasserted once the window is actually up —
+  // setting it only at construction time is unreliable.
+  const floatEverywhere = () => {
+    if (!isMac) return;
     window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  }
-
-  // Tell the renderer when full-screen toggles so it can hide the traffic-light
-  // gutter — macOS removes the window controls in full screen.
-  const emitFullScreen = (value: boolean) =>
-    window.webContents.send(IpcChannels.ON_FULLSCREEN_CHANGED, value);
-  window.on("enter-full-screen", () => emitFullScreen(true));
-  window.on("leave-full-screen", () => emitFullScreen(false));
-
-  // Feed the renderer the zoom factor so it can keep the titlebar native-sized:
-  // once the page settles, and on pinch / ctrl-scroll zoom (menu zoom too).
-  window.webContents.on("did-finish-load", () => broadcastZoom(window));
-  window.webContents.on("zoom-changed", () => broadcastZoom(window));
+    window.setAlwaysOnTop(true, "screen-saver");
+  };
+  floatEverywhere();
+  window.once("ready-to-show", floatEverywhere);
+  window.on("show", floatEverywhere);
 
   if (isDev && devServerUrl) {
     void window.loadURL(devServerUrl);
-    window.webContents.openDevTools({ mode: "detach" });
   } else {
     void window.loadURL(url.pathToFileURL(resolveRendererIndex()).toString());
   }
@@ -83,9 +74,20 @@ function createMainWindow(): BrowserWindow {
   return window;
 }
 
+// A second instance would spawn a second pill and a second global-key
+// listener — both toggling the same murmur-speechd. Refuse to duplicate.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+}
+
 let stopOptionListener: (() => void) | undefined;
 
 app.whenReady().then(() => {
+  // A pure overlay pill has no reason to hold a dock icon or take focus like
+  // a regular app — this also helps it behave as an accessory window macOS
+  // is willing to float over full-screen Spaces.
+  app.dock?.hide();
+
   registerIpcHandlers();
   installApplicationMenu();
   createMainWindow();

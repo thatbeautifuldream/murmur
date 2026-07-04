@@ -203,9 +203,11 @@ function LiveWaveform({
         let sample = 0
         if (active && analyser) {
           analyser.getByteFrequencyData(freqData)
-          let sum = 0
-          for (const v of freqData) sum += v
-          sample = sum / freqData.length / 255
+          let peak = 0
+          for (const v of freqData) if (v > peak) peak = v
+          // Raw frequency peaks read as near-silent at normal speech volume —
+          // a perceptual curve keeps quiet speech visibly above the flatline.
+          sample = Math.pow(peak / 255, 0.6)
         } else if (processing) {
           const t = (now - startedAtRef.current) / 1000
           sample = (Math.sin(t * 3) + 1) / 4 + 0.1

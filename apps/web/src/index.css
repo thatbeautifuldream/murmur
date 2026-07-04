@@ -421,10 +421,11 @@
   }
   html {
     color-scheme: light dark;
-    background-color: var(--sidebar);
+    background-color: transparent;
   }
   body {
-    @apply bg-sidebar text-foreground;
+    @apply text-foreground;
+    background-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;

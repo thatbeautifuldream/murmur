@@ -20,18 +20,6 @@ const bridge: DesktopBridge = {
     ipcRenderer.on(IpcChannels.ON_THEME_CHANGED, wrapped);
     return () => ipcRenderer.removeListener(IpcChannels.ON_THEME_CHANGED, wrapped);
   },
-  isFullScreen: () => ipcRenderer.invoke(IpcChannels.GET_FULLSCREEN),
-  onFullScreenChanged: (listener) => {
-    const wrapped = (_event: Electron.IpcRendererEvent, value: boolean) => listener(value);
-    ipcRenderer.on(IpcChannels.ON_FULLSCREEN_CHANGED, wrapped);
-    return () => ipcRenderer.removeListener(IpcChannels.ON_FULLSCREEN_CHANGED, wrapped);
-  },
-  getZoomFactor: () => ipcRenderer.invoke(IpcChannels.GET_ZOOM_FACTOR),
-  onZoomChanged: (listener) => {
-    const wrapped = (_event: Electron.IpcRendererEvent, factor: number) => listener(factor);
-    ipcRenderer.on(IpcChannels.ON_ZOOM_CHANGED, wrapped);
-    return () => ipcRenderer.removeListener(IpcChannels.ON_ZOOM_CHANGED, wrapped);
-  },
   startDictation: (locale) => ipcRenderer.invoke(IpcChannels.DICTATION_START, locale),
   stopDictation: () => ipcRenderer.invoke(IpcChannels.DICTATION_STOP),
   onDictationStatusChanged: (listener) => {

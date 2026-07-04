@@ -1,67 +1,49 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Mic, Square } from "lucide-react";
+import { motion } from "motion/react";
 import type { DictationStatus } from "@app/contracts";
 import { getDesktopBridge, isDesktop } from "@/desktopBridge";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { LiveWaveform } from "@/components/ui/live-waveform";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 export const Route = createFileRoute("/")({
   component: DictationRoute,
 });
 
-const LOCALES = [
-  { value: "en-US", label: "English (US)" },
-  { value: "en-GB", label: "English (UK)" },
-  { value: "es-ES", label: "Spanish" },
-  { value: "fr-FR", label: "French" },
-  { value: "de-DE", label: "German" },
-];
-
-const STATUS_COPY: Record<DictationStatus, string> = {
-  idle: "Idle",
-  listening: "Listening",
-  inserting: "Inserting",
-  error: "murmur-speechd unreachable",
-};
+const LOCALE = "en-US";
 
 function useDictation() {
   const [status, setStatus] = useState<DictationStatus>("idle");
-  const [transcript, setTranscript] = useState("");
 
   useEffect(() => {
     const bridge = getDesktopBridge();
     if (!bridge) return;
-    const offStatus = bridge.onDictationStatusChanged(setStatus);
-    const offTranscript = bridge.onDictationTranscript(setTranscript);
-    return () => {
-      offStatus();
-      offTranscript();
-    };
+    return bridge.onDictationStatusChanged(setStatus);
   }, []);
 
-  return { status, transcript };
+  return status;
 }
 
-/** Murmur's whole app: one mic button, a live waveform, and the last
- *  transcript. Tapping Option toggles the same state from anywhere — this
- *  view is just a visible surface for it, not the only way to drive it. */
-function DictationRoute() {
-  const { status, transcript } = useDictation();
-  const [locale, setLocale] = useState("en-US");
+const LINE = {
+  width: 56,
+  height: 4,
+  borderRadius: 9999,
+};
 
+const PILL = {
+  width: 240,
+  height: 44,
+  borderRadius: 9999,
+};
+
+/** Murmur's whole app: a flatline that's invisible until you tap Option —
+ *  then it springs into a small pill with a live waveform, and springs back
+ *  to a line the moment you tap Option again to stop (which also pastes the
+ *  transcript into whatever app is frontmost). No buttons, no chrome — the
+ *  hotkey is the only control surface. */
+function DictationRoute() {
+  const status = useDictation();
   const listening = status === "listening";
-  const inserting = status === "inserting";
-  const hasError = status === "error";
+  const expanded = listening || status === "inserting";
 
   const toggle = () => {
     const bridge = getDesktopBridge();
@@ -69,83 +51,53 @@ function DictationRoute() {
     if (listening) {
       void bridge.stopDictation();
     } else {
-      void bridge.startDictation(locale);
+      void bridge.startDictation(LOCALE);
     }
   };
 
-  if (!isDesktop) {
-    return (
-      <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        Murmur's dictation only runs inside the desktop app.
-      </div>
-    );
-  }
+  if (!isDesktop) return null;
 
   return (
-    <div className="flex flex-1 flex-col gap-6 px-6 pb-8">
-      <div className="flex items-center justify-between gap-2">
-        <Badge
-          variant={hasError ? "error" : listening ? "destructive" : "secondary"}
-          className="gap-1.5 pr-2 pl-1.5"
+    <motion.div
+      role="button"
+      tabIndex={0}
+      aria-label={listening ? "Stop dictation" : "Start dictation"}
+      onClick={toggle}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggle()}
+      initial={false}
+      animate={expanded ? PILL : LINE}
+      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+      className="flex cursor-pointer items-center justify-center overflow-hidden bg-foreground/20 dark:bg-white/20"
+      style={
+        {
+          WebkitAppRegion: "drag",
+          ...(expanded && {
+            backgroundColor: "var(--popover)",
+            boxShadow: "0 8px 24px -8px rgb(0 0 0 / 0.35)",
+          }),
+        } as React.CSSProperties
+      }
+    >
+      {expanded && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="w-full px-4"
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
-          <span
-            className={cn(
-              "size-1.5 rounded-full bg-current",
-              listening && "animate-[pulse-dot_1.4s_ease-in-out_infinite]",
-            )}
-            aria-hidden="true"
+          <LiveWaveform
+            active={listening}
+            processing={status === "inserting"}
+            mode="scrolling"
+            height={22}
+            barWidth={2.5}
+            barGap={2}
+            sensitivity={2.5}
+            smoothingTimeConstant={0.5}
           />
-          {STATUS_COPY[status]}
-        </Badge>
-
-        <Select value={locale} onValueChange={setLocale} disabled={listening}>
-          <SelectTrigger size="sm" className="w-36" aria-label="Dictation language">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {LOCALES.map((l) => (
-              <SelectItem key={l.value} value={l.value}>
-                {l.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex flex-col items-center gap-5 pt-4">
-        <Button
-          type="button"
-          variant={listening ? "destructive" : "default"}
-          onClick={toggle}
-          aria-pressed={listening}
-          aria-label={listening ? "Stop dictation" : "Start dictation"}
-          className="relative size-20 rounded-full"
-        >
-          {listening ? <Square className="fill-current" /> : <Mic />}
-        </Button>
-
-        <LiveWaveform
-          active={listening}
-          processing={inserting}
-          mode="static"
-          height={48}
-          className="max-w-64"
-        />
-
-        <p className="text-xs text-muted-foreground">
-          Tap <kbd className="font-mono">⌥</kbd> to toggle from anywhere
-        </p>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-muted p-4">
-        {transcript ? (
-          <p className="text-pretty text-sm text-foreground">{transcript}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Your last transcript will show up here.
-          </p>
-        )}
-      </div>
-    </div>
+        </motion.div>
+      )}
+    </motion.div>
   );
 }
