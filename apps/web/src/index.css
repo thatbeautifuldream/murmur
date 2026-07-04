@@ -410,6 +410,53 @@
   animation: fade-in-up 0.6s ease-out both;
 }
 
+/* Dictation pill — card-resize transition (transitions.dev), tuned
+   asymmetric: expand reads as an immediate reaction to the hotkey (Fast),
+   collapse is quieter (Quick) so it doesn't feel like it's slamming shut. */
+:root {
+  --pill-resize-dur-expand: 250ms;
+  --pill-resize-dur-collapse: 150ms;
+  --pill-resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.t-pill {
+  width: 56px;
+  height: 4px;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--foreground) 20%, transparent);
+  transition:
+    width var(--pill-resize-dur-collapse) var(--pill-resize-ease),
+    height var(--pill-resize-dur-collapse) var(--pill-resize-ease),
+    background-color var(--pill-resize-dur-collapse) var(--pill-resize-ease),
+    box-shadow var(--pill-resize-dur-collapse) var(--pill-resize-ease);
+  will-change: width, height;
+}
+
+.t-pill[data-expanded="true"] {
+  width: 240px;
+  height: 44px;
+  background-color: var(--popover);
+  box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.35);
+  transition-duration: var(--pill-resize-dur-expand);
+}
+
+.t-pill-content {
+  opacity: 0;
+  transition: opacity 150ms ease-in-out;
+}
+
+.t-pill[data-expanded="true"] .t-pill-content {
+  opacity: 1;
+  transition-delay: 100ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-pill,
+  .t-pill-content {
+    transition: none !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

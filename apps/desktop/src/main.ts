@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen } from "electron";
+import { app, BrowserWindow, screen, session, systemPreferences } from "electron";
 import * as path from "node:path";
 import * as url from "node:url";
 import { registerIpcHandlers } from "./ipc/handlers";
@@ -82,11 +82,23 @@ if (!app.requestSingleInstanceLock()) {
 
 let stopOptionListener: (() => void) | undefined;
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // A pure overlay pill has no reason to hold a dock icon or take focus like
   // a regular app — this also helps it behave as an accessory window macOS
   // is willing to float over full-screen Spaces.
   app.dock?.hide();
+
+  // The renderer's own getUserMedia() call (for the live waveform) is a
+  // second, independent mic consumer from murmur-speechd's — Electron denies
+  // it outright unless a permission handler explicitly allows "media", and
+  // macOS still gates the underlying TCC prompt on askForMediaAccess.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === "media");
+  });
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === "media");
+  if (process.platform === "darwin") {
+    await systemPreferences.askForMediaAccess("microphone");
+  }
 
   registerIpcHandlers();
   installApplicationMenu();
