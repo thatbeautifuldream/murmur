@@ -494,8 +494,9 @@
     @apply border-border outline-ring/50;
     scrollbar-width: none;
     /* Continuous squircle curvature instead of a circular arc on every
-       rounded corner — a no-op without border-radius, and a no-op on
-       Chromium versions that don't ship the property yet. */
+       rounded corner — a no-op without border-radius. Chromium shipped
+       corner-shape well after 130; confirmed working on Electron 43
+       (Chromium 150), which is what this app now targets. */
     corner-shape: squircle;
   }
 
