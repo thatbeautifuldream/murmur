@@ -68,7 +68,8 @@ function DictationRoute() {
           barWidth={2.5}
           barGap={2}
           barHeight={3}
-          fadeEdges={false}
+          fadeEdges
+          fadeWidth={20}
           sensitivity={1.5}
           onError={(error) => console.error("murmur: mic access failed", error)}
         />

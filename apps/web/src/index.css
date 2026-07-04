@@ -493,6 +493,10 @@
   * {
     @apply border-border outline-ring/50;
     scrollbar-width: none;
+    /* Continuous squircle curvature instead of a circular arc on every
+       rounded corner — a no-op without border-radius, and a no-op on
+       Chromium versions that don't ship the property yet. */
+    corner-shape: squircle;
   }
 
   *::-webkit-scrollbar {
