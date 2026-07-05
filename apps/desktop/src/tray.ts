@@ -69,6 +69,10 @@ function openTrayMenu(): void {
       label: "Open in Browser",
       click: () => void shell.openExternal(`http://127.0.0.1:${LOCAL_HTTP_PORT}`),
     },
+    {
+      label: "API Docs",
+      click: () => void shell.openExternal(`http://127.0.0.1:${LOCAL_HTTP_PORT}/docs`),
+    },
     { type: "separator" },
     { role: "quit" },
   ]);

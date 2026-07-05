@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { LOCAL_HTTP_PORT } from "@app/contracts";
 import { resolveRendererIndex } from "./app-window";
+import { openApiSpec } from "./openapi";
 import {
   clearTranscriptHistory,
   deleteTranscriptHistoryEntry,
@@ -28,6 +29,25 @@ const MIME_TYPES: Record<string, string> = {
   ".ttf": "font/ttf",
   ".map": "application/json; charset=utf-8",
 };
+
+// Swagger UI loaded from CDN — a localhost-only dev doc viewer, so an external
+// asset is acceptable; the spec itself is served locally at /openapi.json.
+const SWAGGER_UI_HTML = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Murmur API</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      window.ui = SwaggerUIBundle({ url: "/openapi.json", dom_id: "#swagger-ui" });
+    </script>
+  </body>
+</html>`;
 
 /** Serves the built web renderer (the same bundle Electron loads over file://)
  *  so the full app is reachable in a plain browser at 127.0.0.1. Unknown paths
@@ -72,6 +92,16 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
 
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   const segments = url.pathname.split("/").filter(Boolean);
+
+  if (url.pathname === "/openapi.json") {
+    sendJson(res, 200, openApiSpec);
+    return;
+  }
+  if (url.pathname === "/docs" || url.pathname === "/docs/") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(SWAGGER_UI_HTML);
+    return;
+  }
 
   if (segments[0] !== "transcript-history") {
     serveStatic(url.pathname, res);
