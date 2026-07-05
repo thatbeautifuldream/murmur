@@ -15,6 +15,8 @@
     "package": "bun run build && PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 electron-builder --config electron-builder.config.cjs",
     "package:unsigned": "bun run build && PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config electron-builder.config.cjs",
     "package:mac": "bun run build && PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 electron-builder --mac --config electron-builder.config.cjs",
+    "install:mac": "rm -rf /Applications/Murmur.app && cp -R release/mac-arm64/Murmur.app /Applications/ && echo \"Installed to /Applications/Murmur.app\"",
+    "package:install": "bun run package:unsigned && bun run install:mac",
     "release:mac": "bash scripts/release-mac.sh",
     "publish:mac": "bun run build && PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --config electron-builder.config.cjs --publish always",
     "typecheck": "tsc --noEmit"
