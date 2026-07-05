@@ -19,6 +19,9 @@ const desktopPackageJson = JSON.parse(
 ) as { version: string };
 
 export default defineConfig({
+  // Relative asset paths so index.html loads under Electron's file:// protocol
+  // (packaged renderer), not just from a server root.
+  base: "./",
   plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react(), tailwindcss()],
   define: {
     __APP_VERSION__: JSON.stringify(desktopPackageJson.version),
