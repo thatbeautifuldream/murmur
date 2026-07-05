@@ -195,30 +195,17 @@ function DictationRoute() {
           <motion.div
             key="caption"
             ref={captionRef}
-            layout
-            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="max-h-56 max-w-72 overflow-y-auto whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-center text-xs text-[var(--foreground)]"
+            initial={reduceMotion ? false : { opacity: 0, filter: "blur(2px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, filter: "blur(2px)" }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.15, ease: "easeInOut" }}
+            className="max-h-56 max-w-72 overflow-y-auto whitespace-pre-wrap break-words rounded-2xl squircle px-3 py-2 text-center text-xs"
             style={{
               WebkitAppRegion: "no-drag",
               background: "color-mix(in srgb, var(--foreground) 10%, transparent)",
             } as React.CSSProperties}
           >
-            {partialText.split(" ").map((word, i, words) => (
-              <motion.span
-                key={i}
-                initial={reduceMotion ? false : { opacity: 0, y: 4, filter: "blur(2px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                className="inline-block"
-                style={{ willChange: "transform, opacity, filter" }}
-              >
-                {word}
-                {i < words.length - 1 ? " " : ""}
-              </motion.span>
-            ))}
+            {partialText}
           </motion.div>
         )}
       </AnimatePresence>
