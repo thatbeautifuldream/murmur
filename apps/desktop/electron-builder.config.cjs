@@ -27,6 +27,7 @@ module.exports = {
       { target: "zip", arch: ["arm64"] },
     ],
     category: "public.app-category.developer-tools",
+    icon: "build/icon.icns",
     darkModeSupport: true,
     // macOS force-kills any process that touches the microphone without a
     // usage-description string in its Info.plist (a TCC abort). The app calls
@@ -63,6 +64,8 @@ module.exports = {
     binaries: ["Contents/Resources/murmur-speechd/murmur-speechd"],
   },
   dmg: {
+    background: "build/dmg-background.png",
+    window: { width: 540, height: 380 },
     contents: [
       { x: 150, y: 200, type: "file" },
       { x: 390, y: 200, type: "link", path: "/Applications" },
