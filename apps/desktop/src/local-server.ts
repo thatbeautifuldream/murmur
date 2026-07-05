@@ -1,5 +1,8 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { LOCAL_HTTP_PORT } from "@app/contracts";
+import { resolveRendererIndex } from "./app-window";
 import {
   clearTranscriptHistory,
   deleteTranscriptHistoryEntry,
@@ -8,6 +11,41 @@ import {
 } from "./transcript-history";
 
 let server: Server | undefined;
+
+const MIME_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".map": "application/json; charset=utf-8",
+};
+
+/** Serves the built web renderer (the same bundle Electron loads over file://)
+ *  so the full app is reachable in a plain browser at 127.0.0.1. Unknown paths
+ *  fall back to index.html — the renderer routes client-side via hash history. */
+function serveStatic(pathname: string, res: ServerResponse): void {
+  const rendererDir = path.dirname(resolveRendererIndex());
+  const relative = path.normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
+  let filePath = path.join(rendererDir, relative);
+
+  // Confine to the renderer dir; anything outside or missing serves index.html.
+  if (!filePath.startsWith(rendererDir) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    filePath = resolveRendererIndex();
+  }
+
+  const contentType = MIME_TYPES[path.extname(filePath).toLowerCase()] ?? "application/octet-stream";
+  res.writeHead(200, { "Content-Type": contentType });
+  fs.createReadStream(filePath).pipe(res);
+}
 
 function withCors(res: ServerResponse): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -20,8 +58,9 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
-/** Lets a plain browser tab (no `window.desktopBridge`) read and manage the
- *  same transcript history as the Electron app, over localhost only. */
+/** Serves the web UI and lets a plain browser tab (no `window.desktopBridge`)
+ *  read and manage the same transcript history as the Electron app, over
+ *  localhost only. */
 function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   withCors(res);
 
@@ -35,7 +74,7 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   const segments = url.pathname.split("/").filter(Boolean);
 
   if (segments[0] !== "transcript-history") {
-    sendJson(res, 404, { error: "Not found" });
+    serveStatic(url.pathname, res);
     return;
   }
 
