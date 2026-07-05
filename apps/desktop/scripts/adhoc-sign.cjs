@@ -2,23 +2,25 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-/** electron-builder afterPack hook. For unsigned macOS releases electron-builder
- *  skips code signing, but Apple Silicon SIGKILLs any Mach-O without a valid
- *  signature on launch. Ad-hoc sign (`codesign -s -`) the bundled Swift helper,
- *  every native .node addon, then the whole app so it launches without a
- *  Developer ID. Runs only on macOS packaging. */
+/** electron-builder afterPack hook. electron-builder skips its own code signing
+ *  for these releases, but Apple Silicon SIGKILLs any Mach-O without a valid
+ *  signature on launch. Sign the bundled Swift helper, every native .node addon,
+ *  then the whole app. Uses MURMUR_SIGN_IDENTITY (an Apple Development cert hash)
+ *  when set — a stable, cert-based signature so macOS TCC grants (Accessibility,
+ *  mic) survive rebuilds — otherwise falls back to ad-hoc (`-`). macOS only. */
 exports.default = async function adhocSign(context) {
   if (context.electronPlatformName !== "darwin") return;
 
+  const identity = process.env.MURMUR_SIGN_IDENTITY || "-";
   const appName = `${context.packager.appInfo.productFilename}.app`;
   const appPath = path.join(context.appOutDir, appName);
   const resources = path.join(appPath, "Contents", "Resources");
   const entitlements = path.join(__dirname, "..", "build", "entitlements.mac.plist");
 
   const sign = (target, { app } = {}) => {
-    const args = ["--force", "--sign", "-", "--timestamp=none"];
+    const args = ["--force", "--sign", identity, "--timestamp=none"];
     // The app is signed --deep so the nested Electron/Squirrel frameworks are
-    // re-sealed ad-hoc consistently with the outer bundle; hardened runtime +
+    // re-sealed consistently with the outer bundle; hardened runtime +
     // entitlements apply to the main executable.
     if (app) {
       args.push("--deep", "--options", "runtime", "--entitlements", entitlements);

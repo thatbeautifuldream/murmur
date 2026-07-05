@@ -62,11 +62,16 @@ export function initializeAutoUpdater(): void {
     });
   });
 
-  // A machine that slept through the interval should re-check on wake.
-  powerMonitor.on("resume", () => void autoUpdater.checkForUpdates());
+  // checkForUpdates rejects (not just emits "error") when the feed is
+  // unreachable — e.g. no GitHub release published yet — so swallow it to avoid
+  // an unhandled rejection; the "error" handler above covers user-facing cases.
+  const check = () => autoUpdater.checkForUpdates().catch(() => undefined);
 
-  void autoUpdater.checkForUpdates();
-  setInterval(() => void autoUpdater.checkForUpdates(), CHECK_INTERVAL_MS).unref();
+  // A machine that slept through the interval should re-check on wake.
+  powerMonitor.on("resume", () => void check());
+
+  void check();
+  setInterval(() => void check(), CHECK_INTERVAL_MS).unref();
 }
 
 /** Triggered from the app menu; surfaces a dialog when there's nothing to
@@ -80,5 +85,5 @@ export function checkForUpdatesManually(): void {
     return;
   }
   manualCheckPending = true;
-  void autoUpdater.checkForUpdates();
+  void autoUpdater.checkForUpdates().catch(() => undefined);
 }
