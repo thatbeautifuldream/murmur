@@ -1,7 +1,8 @@
 import { app, BrowserWindow, screen, session, systemPreferences } from "electron";
 import * as path from "node:path";
 import { registerIpcHandlers } from "./ipc/handlers";
-import { toggleDictation } from "./dictation";
+import { toggleDictation, onDictationStatusChanged } from "./dictation";
+import type { DictationStatus } from "@app/contracts";
 import {
   hasAccessibilityAccess,
   listenForOptionTap,
@@ -15,18 +16,42 @@ import { resolveRendererUrl } from "./app-window";
 import { startLocalServer, stopLocalServer } from "./local-server";
 import { initializeAutoUpdater } from "./updater";
 
-// Fixed footprint sized for the expanded (listening) pill, with the pill
-// itself bottom-anchored inside it via flex. Sizing the window this way
-// instead of resizing on state change avoids OS-level resize jank on a
-// frameless/transparent window. The extra margin beyond the pill's own
+// Footprint sized for the expanded (listening) pill, with the pill itself
+// bottom-anchored inside it via flex. The extra margin beyond the pill's own
 // size (see app-shell's padding) isn't just breathing room — the CSS box
 // shadow needs real transparent canvas to blur into, or the window's own
 // rectangular bounds hard-clip it into a visible cut edge. The height/width
 // also leave room above the pill for the live raw-transcript caption to
 // grow into (up to its own max-h/max-w, then it scrolls internally).
+//
+// When idle, though, that full canvas would swallow every click over a large
+// bottom-center patch of the screen even though only the 4px flatline is
+// visible. So the window collapses to a low idle height (just enough for the
+// flatline plus its transparent padding) and only grows to the full footprint
+// while dictation is active — the bottom edge stays pinned so the pill never
+// moves.
 const PILL_WIDTH = 360;
 const PILL_AREA_HEIGHT = 340;
+const PILL_IDLE_HEIGHT = 64;
 const BOTTOM_MARGIN = 28;
+
+function isPillExpanded(status: DictationStatus): boolean {
+  return status === "listening" || status === "processing" || status === "inserting";
+}
+
+// Keep the window bottom-anchored while swapping between the idle and expanded
+// heights, so the flatline holds its on-screen position through the resize.
+function applyPillBounds(window: BrowserWindow, expanded: boolean): void {
+  const { workArea } = screen.getPrimaryDisplay();
+  const height = expanded ? PILL_AREA_HEIGHT : PILL_IDLE_HEIGHT;
+  const bottom = workArea.y + workArea.height - BOTTOM_MARGIN;
+  window.setBounds({
+    x: Math.round(workArea.x + (workArea.width - PILL_WIDTH) / 2),
+    y: Math.round(bottom - height),
+    width: PILL_WIDTH,
+    height,
+  });
+}
 
 function createMainWindow(): BrowserWindow {
   const isMac = process.platform === "darwin";
@@ -34,9 +59,9 @@ function createMainWindow(): BrowserWindow {
 
   const window = new BrowserWindow({
     width: PILL_WIDTH,
-    height: PILL_AREA_HEIGHT,
+    height: PILL_IDLE_HEIGHT,
     x: Math.round(workArea.x + (workArea.width - PILL_WIDTH) / 2),
-    y: Math.round(workArea.y + workArea.height - PILL_AREA_HEIGHT - BOTTOM_MARGIN),
+    y: Math.round(workArea.y + workArea.height - PILL_IDLE_HEIGHT - BOTTOM_MARGIN),
     title: "Murmur",
     frame: false,
     transparent: true,
@@ -135,6 +160,14 @@ function bootstrap(): void {
   installApplicationMenu();
   installTray();
   mainWindow = createMainWindow();
+  // Grow the window to the full pill footprint only while dictation is active,
+  // and drop it back to the low idle height (so idle clicks fall through to
+  // whatever's underneath) once it stops.
+  onDictationStatusChanged((status) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      applyPillBounds(mainWindow, isPillExpanded(status));
+    }
+  });
   startSpeechd();
   initializeAutoUpdater();
 
