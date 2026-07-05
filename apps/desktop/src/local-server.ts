@@ -30,21 +30,33 @@ const MIME_TYPES: Record<string, string> = {
   ".map": "application/json; charset=utf-8",
 };
 
-// Swagger UI loaded from CDN — a localhost-only dev doc viewer, so an external
-// asset is acceptable; the spec itself is served locally at /openapi.json.
-const SWAGGER_UI_HTML = `<!doctype html>
+// Scalar API Reference loaded from CDN — a localhost-only dev doc viewer, so an
+// external asset is acceptable; the spec itself is served locally at /openapi.json.
+const SCALAR_API_REFERENCE_HTML = `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Murmur API</title>
-    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <style>
+      html,
+      body,
+      #app {
+        min-height: 100%;
+        margin: 0;
+      }
+    </style>
   </head>
   <body>
-    <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <div id="app"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
     <script>
-      window.ui = SwaggerUIBundle({ url: "/openapi.json", dom_id: "#swagger-ui" });
+      Scalar.createApiReference('#app', {
+        url: '/openapi.json',
+        pageTitle: 'Murmur API',
+        theme: 'saturn',
+        layout: 'modern',
+      });
     </script>
   </body>
 </html>`;
@@ -99,7 +111,7 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   }
   if (url.pathname === "/docs" || url.pathname === "/docs/") {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(SWAGGER_UI_HTML);
+    res.end(SCALAR_API_REFERENCE_HTML);
     return;
   }
 

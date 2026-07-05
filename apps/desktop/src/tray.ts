@@ -83,7 +83,7 @@ export function installTray(): void {
   tray = new Tray(createTrayIcon());
   updateTray();
 
-  tray.on("click", () => openAppWindow("/history"));
+  tray.on("click", () => void toggleDictation());
   tray.on("right-click", openTrayMenu);
 
   removeStatusListener = onDictationStatusChanged(updateTray);

@@ -5,7 +5,7 @@ const SPEECHD_URL = "http://127.0.0.1:8722";
 
 /** OpenAPI 3 spec for both localhost HTTP surfaces: the Electron local server
  *  (transcript history, this port) and the Swift murmur-speechd daemon. Served
- *  as /openapi.json with Swagger UI at /docs. speechd paths carry a path-level
+ *  as /openapi.json with Scalar API Reference at /docs. speechd paths carry a path-level
  *  `servers` override since they live on a different port. */
 export const openApiSpec = {
   openapi: "3.0.3",
