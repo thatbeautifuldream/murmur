@@ -1,7 +1,9 @@
 import { app, dialog, powerMonitor } from "electron";
-import electronUpdater from "electron-updater";
+import * as electronUpdater from "electron-updater";
 
-// electron-updater is CJS with getter-based exports; named ESM imports break at runtime.
+// electron-updater is CJS with __esModule:true but NO default export — `autoUpdater`
+// is a lazy getter on the namespace. A default import resolves to `.default`
+// (undefined) once bundled; go through the namespace so the getter is reached.
 const { autoUpdater } = electronUpdater;
 
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;

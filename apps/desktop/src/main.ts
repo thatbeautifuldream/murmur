@@ -68,15 +68,25 @@ function createMainWindow(): BrowserWindow {
   return window;
 }
 
-// A second instance would spawn a second pill and a second global-key
-// listener — both toggling the same murmur-speechd. Refuse to duplicate.
-if (!app.requestSingleInstanceLock()) {
-  app.quit();
-}
-
+let mainWindow: BrowserWindow | undefined;
 let stopOptionListener: (() => void) | undefined;
 
-app.whenReady().then(async () => {
+// A second instance would spawn a second pill and a second global-key
+// listener — both toggling the same murmur-speechd. Refuse to duplicate:
+// bail out of the whole startup and hand focus back to the running instance.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+    }
+  });
+  bootstrap();
+}
+
+function bootstrap(): void {
+  app.whenReady().then(async () => {
   // A pure overlay pill has no reason to hold a dock icon or take focus like
   // a regular app — this also helps it behave as an accessory window macOS
   // is willing to float over full-screen Spaces.
@@ -91,14 +101,16 @@ app.whenReady().then(async () => {
   });
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === "media");
   if (process.platform === "darwin") {
-    await systemPreferences.askForMediaAccess("microphone");
+    // Never let a mic-permission failure abort startup — the pill must still
+    // appear even if the user denies access.
+    await systemPreferences.askForMediaAccess("microphone").catch(() => false);
   }
 
   registerIpcHandlers();
   startLocalServer();
   installApplicationMenu();
   installTray();
-  createMainWindow();
+  mainWindow = createMainWindow();
   startSpeechd();
   initializeAutoUpdater();
 
@@ -106,10 +118,11 @@ app.whenReady().then(async () => {
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
+      mainWindow = createMainWindow();
     }
   });
-});
+  });
+}
 
 app.on("will-quit", () => {
   stopOptionListener?.();
