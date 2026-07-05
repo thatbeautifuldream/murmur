@@ -50,6 +50,9 @@ const bridge: DesktopBridge = {
     ipcRenderer.on(IpcChannels.ON_TRANSCRIPT_HISTORY_CHANGED, wrapped);
     return () => ipcRenderer.removeListener(IpcChannels.ON_TRANSCRIPT_HISTORY_CHANGED, wrapped);
   },
+  setPillInteractive: (interactive) =>
+    ipcRenderer.send(IpcChannels.WINDOW_SET_PILL_INTERACTIVE, interactive),
+  movePillBy: (dx, dy) => ipcRenderer.send(IpcChannels.WINDOW_MOVE_PILL, dx, dy),
   isFullScreen: () => ipcRenderer.invoke(IpcChannels.WINDOW_GET_FULLSCREEN),
   onFullScreenChanged: (listener) => {
     const wrapped = (_event: Electron.IpcRendererEvent, isFullScreen: boolean) =>

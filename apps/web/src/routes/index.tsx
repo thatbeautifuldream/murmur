@@ -74,6 +74,9 @@ function DictationRoute() {
   const expanded = listening || processing;
   const reduceMotion = useReducedMotion();
   const captionRef = useRef<HTMLDivElement | null>(null);
+  const pillRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{ lastX: number; lastY: number; moved: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
 
   useEffect(() => {
     const caption = captionRef.current;
@@ -81,7 +84,86 @@ function DictationRoute() {
     caption.scrollTop = caption.scrollHeight;
   }, [partialText]);
 
+  // While idle the window ignores the mouse so clicks fall through to whatever's
+  // underneath; `forward: true` still delivers move events, so hit-test them
+  // here and capture the mouse only while the cursor is over the pill (padded,
+  // since the idle flatline is a tiny target). Element mouseenter/leave is
+  // unreliable because the pill is a `-webkit-app-region: drag` region, which
+  // swallows DOM mouse events — a document-level move listener is not affected.
+  useEffect(() => {
+    if (expanded) return;
+    const bridge = getDesktopBridge();
+    if (!bridge) return;
+    const HIT_PADDING = 12;
+    let interactive = false;
+    const onMove = (event: MouseEvent) => {
+      // Never release mid-drag: a fast drag lets the pointer briefly outrun the
+      // window (which chases it a frame behind), and dropping capture there
+      // would break the drag and flip the cursor back to the arrow.
+      if (dragRef.current) return;
+      const pill = pillRef.current;
+      if (!pill) return;
+      const rect = pill.getBoundingClientRect();
+      const over =
+        event.clientX >= rect.left - HIT_PADDING &&
+        event.clientX <= rect.right + HIT_PADDING &&
+        event.clientY >= rect.top - HIT_PADDING &&
+        event.clientY <= rect.bottom + HIT_PADDING;
+      if (over !== interactive) {
+        interactive = over;
+        bridge.setPillInteractive(over);
+      }
+    };
+    window.addEventListener("mousemove", onMove);
+    // No release on cleanup: capture during the expanded state is owned by the
+    // main process (it re-asserts ignore-mouse on every status change), so
+    // releasing here would race it and leave the expanded pill click-through.
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [expanded]);
+
+  // Dragging the pill is driven here (not a native `-webkit-app-region`, which
+  // would override the cursor and race the click-through capture): stream the
+  // screen-pixel delta to main on each move, and swallow the click that ends a
+  // real drag so it doesn't also toggle dictation.
+  useEffect(() => {
+    const bridge = getDesktopBridge();
+    if (!bridge) return;
+    const DRAG_THRESHOLD = 3;
+    let startX = 0;
+    let startY = 0;
+    const onMove = (event: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      bridge.movePillBy(event.screenX - drag.lastX, event.screenY - drag.lastY);
+      drag.lastX = event.screenX;
+      drag.lastY = event.screenY;
+      if (Math.abs(event.screenX - startX) + Math.abs(event.screenY - startY) > DRAG_THRESHOLD) {
+        drag.moved = true;
+      }
+    };
+    const onUp = () => {
+      if (dragRef.current?.moved) suppressClickRef.current = true;
+      dragRef.current = null;
+    };
+    const onDown = (event: MouseEvent) => {
+      startX = event.screenX;
+      startY = event.screenY;
+    };
+    window.addEventListener("mousedown", onDown, true);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousedown", onDown, true);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
   const toggle = () => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
     if (processing) return;
     const bridge = getDesktopBridge();
     if (!bridge) return;
@@ -150,6 +232,11 @@ function DictationRoute() {
         aria-busy={processing}
         onClick={toggle}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggle()}
+        onMouseDown={(e) => {
+          if (e.button !== 0 || processing) return;
+          dragRef.current = { lastX: e.screenX, lastY: e.screenY, moved: false };
+        }}
+        ref={pillRef}
         initial={false}
         animate={{
           width: expanded ? 240 : 56,
@@ -158,11 +245,14 @@ function DictationRoute() {
         transition={shapeTransition}
         className={cn(
           "flex items-center justify-center overflow-hidden rounded-full",
-          processing ? "cursor-default" : "cursor-pointer",
+          processing
+            ? "cursor-default"
+            : expanded
+              ? "cursor-pointer"
+              : "cursor-grab active:cursor-grabbing",
         )}
         style={
           {
-            WebkitAppRegion: "drag",
             transition: surfaceTransition,
             background: expanded
               ? "var(--pill-bg-expanded)"

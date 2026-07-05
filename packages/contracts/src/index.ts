@@ -16,6 +16,8 @@ export const IpcChannels = {
   ON_TRANSCRIPT_HISTORY_CHANGED: "transcript-history:changed",
   WINDOW_GET_FULLSCREEN: "window:get-fullscreen",
   ON_WINDOW_FULLSCREEN_CHANGED: "window:fullscreen-changed",
+  WINDOW_SET_PILL_INTERACTIVE: "window:set-pill-interactive",
+  WINDOW_MOVE_PILL: "window:move-pill",
 } as const;
 
 /** Port for the localhost HTTP API the desktop app exposes so a plain
@@ -91,6 +93,14 @@ export interface DesktopBridge {
    *  hides the traffic-light controls in that state. */
   isFullScreen(): Promise<boolean>;
   onFullScreenChanged(listener: (isFullScreen: boolean) => void): () => void;
+  /** While idle the pill window ignores the mouse so clicks fall through to
+   *  whatever's underneath. The pill flips this on while the cursor is over it
+   *  so it stays clickable and draggable. Only honored in the idle state. */
+  setPillInteractive(interactive: boolean): void;
+  /** Nudges the pill window by a screen-pixel delta — the renderer drives the
+   *  drag itself (rather than a native `-webkit-app-region`) so the pill keeps
+   *  its own cursor and the drag can't fight the click-through capture. */
+  movePillBy(dx: number, dy: number): void;
 }
 
 declare global {

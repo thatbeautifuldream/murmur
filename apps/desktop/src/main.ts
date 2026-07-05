@@ -39,18 +39,35 @@ function isPillExpanded(status: DictationStatus): boolean {
   return status === "listening" || status === "processing" || status === "inserting";
 }
 
-// Keep the window bottom-anchored while swapping between the idle and expanded
-// heights, so the flatline holds its on-screen position through the resize.
-function applyPillBounds(window: BrowserWindow, expanded: boolean): void {
+// Where the pill is anchored: its left edge and its bottom edge. Defaults to
+// bottom-center, but a drag overwrites it (see the "move" handler) so the
+// resize below never yanks a repositioned pill back to the middle.
+let pillAnchor: { x: number; bottom: number } | undefined;
+
+function defaultPillAnchor(): { x: number; bottom: number } {
   const { workArea } = screen.getPrimaryDisplay();
-  const height = expanded ? PILL_AREA_HEIGHT : PILL_IDLE_HEIGHT;
-  const bottom = workArea.y + workArea.height - BOTTOM_MARGIN;
-  window.setBounds({
+  return {
     x: Math.round(workArea.x + (workArea.width - PILL_WIDTH) / 2),
-    y: Math.round(bottom - height),
+    bottom: workArea.y + workArea.height - BOTTOM_MARGIN,
+  };
+}
+
+// Keep the window bottom-anchored while swapping between the idle and expanded
+// heights, so the pill holds its on-screen position through the resize.
+function applyPillBounds(window: BrowserWindow, expanded: boolean): void {
+  const anchor = pillAnchor ?? defaultPillAnchor();
+  const height = expanded ? PILL_AREA_HEIGHT : PILL_IDLE_HEIGHT;
+  window.setBounds({
+    x: anchor.x,
+    y: Math.round(anchor.bottom - height),
     width: PILL_WIDTH,
     height,
   });
+  // While idle the flatline is decorative — the hotkey is the control surface —
+  // so let every click fall through to whatever's underneath. `forward` still
+  // delivers mouse-move so hover would work if we ever needed it; the window
+  // recaptures clicks only once it expands into the interactive pill.
+  window.setIgnoreMouseEvents(!expanded, { forward: true });
 }
 
 function createMainWindow(): BrowserWindow {
@@ -91,6 +108,19 @@ function createMainWindow(): BrowserWindow {
   floatEverywhere();
   window.once("ready-to-show", floatEverywhere);
   window.on("show", floatEverywhere);
+
+  // Starts idle, so clicks pass straight through until dictation expands it.
+  window.setIgnoreMouseEvents(true, { forward: true });
+
+  // Remember wherever the pill is dragged to (by its left/bottom edge) so the
+  // idle<->expanded resize re-anchors there instead of snapping to center. Our
+  // own setBounds re-fires this, but it writes back the same anchor, so it's a
+  // no-op in that case.
+  window.on("move", () => {
+    if (window.isDestroyed()) return;
+    const { x, y, height } = window.getBounds();
+    pillAnchor = { x, bottom: y + height };
+  });
 
   void window.loadURL(resolveRendererUrl());
 

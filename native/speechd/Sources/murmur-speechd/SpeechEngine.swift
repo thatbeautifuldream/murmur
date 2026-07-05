@@ -67,8 +67,14 @@ final class SpeechEngine {
     private func stopEngineIfNeeded() {
         if audioEngine.isRunning {
             audioEngine.stop()
-            audioEngine.inputNode.removeTap(onBus: 0)
         }
+        // Always remove the tap, not just when the engine is running: a prior
+        // start() that installed a tap but never got the engine running (a
+        // failed start, or a second trigger racing the first) would otherwise
+        // leave a stale tap, and the next installTap aborts the process with
+        // "required condition is false: nullptr == Tap()". removeTap is a safe
+        // no-op when no tap is installed.
+        audioEngine.inputNode.removeTap(onBus: 0)
         request?.endAudio()
         task?.cancel()
         request = nil
