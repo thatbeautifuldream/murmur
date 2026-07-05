@@ -1,5 +1,5 @@
-import { Menu, nativeImage, Tray, type NativeImage } from "electron";
-import type { DictationStatus } from "@app/contracts";
+import { Menu, nativeImage, shell, Tray, type NativeImage } from "electron";
+import { LOCAL_HTTP_PORT, type DictationStatus } from "@app/contracts";
 import { getDictationStatus, onDictationStatusChanged, toggleDictation } from "./dictation";
 import { openAppWindow } from "./app-window";
 
@@ -65,6 +65,10 @@ function openTrayMenu(): void {
     },
     { type: "separator" },
     { label: "Show History", click: () => openAppWindow("/history") },
+    {
+      label: "Open in Browser",
+      click: () => void shell.openExternal(`http://127.0.0.1:${LOCAL_HTTP_PORT}`),
+    },
     { type: "separator" },
     { role: "quit" },
   ]);
