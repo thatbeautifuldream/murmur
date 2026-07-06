@@ -18,7 +18,11 @@ final class SpeechEngine {
         }
     }
 
-    func start(locale: String = "en-US", recordingPath: String? = nil) throws {
+    func start(
+        locale: String = "en-US",
+        recordingPath: String? = nil,
+        contextualStrings: [String] = []
+    ) throws {
         stopEngineIfNeeded()
 
         let recognizer = SFSpeechRecognizer(locale: Locale(identifier: locale))
@@ -29,6 +33,9 @@ final class SpeechEngine {
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
+        if !contextualStrings.isEmpty {
+            request.contextualStrings = contextualStrings
+        }
         self.request = request
         latestText = ""
 

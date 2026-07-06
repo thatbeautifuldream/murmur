@@ -23,6 +23,8 @@ export const IpcChannels = {
   MENU_SHOW_KEYBOARD_SHORTCUTS: "menu:show-keyboard-shortcuts",
   SETTINGS_GET_ACTIVATION_SHORTCUT: "settings:get-activation-shortcut",
   SETTINGS_SET_ACTIVATION_SHORTCUT: "settings:set-activation-shortcut",
+  SETTINGS_GET_MODES: "settings:get-modes",
+  SETTINGS_SET_MODES: "settings:set-modes",
 } as const;
 
 /** Port for the localhost HTTP API the desktop app exposes so a plain
@@ -75,6 +77,55 @@ export interface TranscriptHistoryEntry {
   inserted: boolean;
   createdAt: string;
 }
+
+/** A find/replace applied to the final transcript before it's inserted,
+ *  e.g. `{ from: "my email", to: "you@example.com" }`. Matching is
+ *  case-insensitive and substring by default; `wholeWord` requires word
+ *  boundaries and `caseSensitive` an exact-case match. */
+export interface ReplacementRule {
+  from: string;
+  to: string;
+  caseSensitive?: boolean;
+  wholeWord?: boolean;
+}
+
+/** A per-context dictation profile. Auto-selected when the frontmost app's
+ *  bundle id is in `appBundleIds`; falls back to the config's default mode.
+ *  `vocabulary` biases Apple Speech recognition (contextual strings) and
+ *  `replacements` post-process the final transcript. */
+export interface DictationMode {
+  id: string;
+  name: string;
+  appBundleIds: string[];
+  locale?: string;
+  vocabulary: string[];
+  replacements: ReplacementRule[];
+}
+
+export interface ModesConfig {
+  modes: DictationMode[];
+  /** Id of the mode used when no app matches, always present in `modes`. */
+  defaultModeId: string;
+  /** When set, this mode is forced regardless of the frontmost app. `null`
+   *  means auto-select by app. */
+  overrideModeId: string | null;
+}
+
+export const DEFAULT_MODE_ID = "default";
+
+export const DEFAULT_MODES_CONFIG: ModesConfig = {
+  modes: [
+    {
+      id: DEFAULT_MODE_ID,
+      name: "Default",
+      appBundleIds: [],
+      vocabulary: [],
+      replacements: [],
+    },
+  ],
+  defaultModeId: DEFAULT_MODE_ID,
+  overrideModeId: null,
+};
 
 export interface DesktopBridge {
   readonly platform: Platform;
@@ -129,6 +180,10 @@ export interface DesktopBridge {
    *  the live shortcut) if a `combo` can't be registered — e.g. already claimed
    *  by another app. */
   setActivationShortcut(shortcut: ActivationShortcut): Promise<SetActivationShortcutResult>;
+  /** The custom dictation modes and which one is active/forced. */
+  getModes(): Promise<ModesConfig>;
+  /** Persists the full modes config (modes list, default, and override). */
+  setModes(config: ModesConfig): Promise<void>;
 }
 
 declare global {

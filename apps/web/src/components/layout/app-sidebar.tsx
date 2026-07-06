@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { HistoryIcon, InformationCircleIcon, Settings02Icon, SidebarLeft01Icon } from "@hugeicons/core-free-icons";
+import { HistoryIcon, InformationCircleIcon, Settings02Icon, SidebarLeft01Icon, SlidersHorizontalIcon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { useSidebarChrome } from "@/hooks/use-sidebar-chrome";
 import {
@@ -13,6 +13,7 @@ import {
 
 const NAV_ITEMS = [
   { to: "/settings", label: "Settings", icon: Settings02Icon },
+  { to: "/modes", label: "Modes", icon: SlidersHorizontalIcon },
   { to: "/history", label: "History", icon: HistoryIcon },
   { to: "/about", label: "About", icon: InformationCircleIcon },
 ] as const;

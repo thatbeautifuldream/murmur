@@ -70,9 +70,14 @@ final class Server {
             respond(connection, status: 200, body: ["status": "ok"])
         case ("POST", _) where path.hasPrefix("/start"):
             do {
+                let vocabulary = (queryParam(path, "vocabulary") ?? "")
+                    .split(separator: "\n")
+                    .map(String.init)
+                    .filter { !$0.isEmpty }
                 try engine.start(
                     locale: queryParam(path, "locale") ?? "en-US",
-                    recordingPath: queryParam(path, "recordingPath")
+                    recordingPath: queryParam(path, "recordingPath"),
+                    contextualStrings: vocabulary
                 )
                 respond(connection, status: 200, body: ["status": "listening"])
             } catch {

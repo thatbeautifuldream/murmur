@@ -1,6 +1,7 @@
-import { Menu, nativeImage, shell, Tray, type NativeImage } from "electron";
+import { Menu, nativeImage, shell, Tray, type MenuItemConstructorOptions, type NativeImage } from "electron";
 import { LOCAL_HTTP_PORT, type DictationStatus } from "@app/contracts";
 import { getDictationStatus, onDictationStatusChanged, toggleDictation } from "./dictation";
+import { getModes, setModes } from "./settings-store";
 import { openAppWindow } from "./app-window";
 
 const TRAY_ICON_SVG = `
@@ -53,6 +54,25 @@ function updateTray(status = getDictationStatus()): void {
   tray.setToolTip(`Murmur - ${statusLabel(status)}`);
 }
 
+function buildModesSubmenu(): MenuItemConstructorOptions[] {
+  const config = getModes();
+  return [
+    {
+      label: "Auto (by app)",
+      type: "checkbox",
+      checked: config.overrideModeId === null,
+      click: () => setModes({ ...config, overrideModeId: null }),
+    },
+    { type: "separator" },
+    ...config.modes.map<MenuItemConstructorOptions>((mode) => ({
+      label: mode.name,
+      type: "checkbox",
+      checked: config.overrideModeId === mode.id,
+      click: () => setModes({ ...config, overrideModeId: mode.id }),
+    })),
+  ];
+}
+
 function openTrayMenu(): void {
   if (!tray) return;
   const status = getDictationStatus();
@@ -63,6 +83,7 @@ function openTrayMenu(): void {
       enabled: status !== "processing" && status !== "inserting",
       click: () => void toggleDictation(),
     },
+    { label: "Mode", submenu: buildModesSubmenu() },
     { type: "separator" },
     { label: "Show History", click: () => openAppWindow("/history") },
     {

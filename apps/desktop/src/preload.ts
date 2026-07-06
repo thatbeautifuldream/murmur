@@ -75,6 +75,8 @@ const bridge: DesktopBridge = {
   getActivationShortcut: () => ipcRenderer.invoke(IpcChannels.SETTINGS_GET_ACTIVATION_SHORTCUT),
   setActivationShortcut: (shortcut) =>
     ipcRenderer.invoke(IpcChannels.SETTINGS_SET_ACTIVATION_SHORTCUT, shortcut),
+  getModes: () => ipcRenderer.invoke(IpcChannels.SETTINGS_GET_MODES),
+  setModes: (config) => ipcRenderer.invoke(IpcChannels.SETTINGS_SET_MODES, config),
 };
 
 contextBridge.exposeInMainWorld("desktopBridge", bridge);

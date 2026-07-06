@@ -3,7 +3,14 @@ import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { IpcChannels, type DictationStatus, type DictationStopResult } from "@app/contracts";
+import {
+  IpcChannels,
+  type DictationMode,
+  type DictationStatus,
+  type DictationStopResult,
+  type ReplacementRule,
+} from "@app/contracts";
+import { resolveMode } from "./settings-store";
 import { saveTranscriptHistory } from "./transcript-history";
 import { playDictationStartSound, playDictationStopSound } from "./system-sounds";
 
@@ -13,6 +20,8 @@ let status: DictationStatus = "idle";
 let activeLocale = "en-US";
 let startedAt: number | undefined;
 let activeRecordingPath: string | undefined;
+let activeMode: DictationMode | undefined;
+let activeSourceApp: FrontmostAppInfo | undefined;
 let partialPollTimer: NodeJS.Timeout | undefined;
 let lastPartialText = "";
 const statusListeners = new Set<(status: DictationStatus) => void>();
@@ -87,15 +96,26 @@ export function onDictationStatusChanged(
 export async function startDictation(locale = "en-US"): Promise<{ ok: boolean; error?: string }> {
   if (status === "listening") return { ok: true };
   try {
+    // Resolve the mode from the frontmost app up front: its vocabulary must be
+    // passed to speechd before recognition starts, and reusing the same app
+    // snapshot at stop avoids a second osascript round-trip.
+    const sourceApp = await getFrontmostAppInfo();
+    const mode = resolveMode(sourceApp.bundleId);
+    const effectiveLocale = mode.locale || locale;
     const recordingPath = createRecordingPath();
-    const params = new URLSearchParams({ locale, recordingPath });
+    const params = new URLSearchParams({ locale: effectiveLocale, recordingPath });
+    if (mode.vocabulary.length > 0) {
+      params.set("vocabulary", mode.vocabulary.join("\n"));
+    }
     const response = await fetch(`${SPEECHD_URL}/start?${params.toString()}`, { method: "POST" });
     if (!response.ok) {
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       setStatus("error");
       return { ok: false, error: body.error ?? `HTTP ${response.status}` };
     }
-    activeLocale = locale;
+    activeLocale = effectiveLocale;
+    activeMode = mode;
+    activeSourceApp = sourceApp;
     activeRecordingPath = recordingPath;
     startedAt = Date.now();
     playDictationStartSound();
@@ -113,10 +133,10 @@ export async function stopDictation(): Promise<DictationStopResult> {
   try {
     stopPartialPolling();
     setStatus("processing");
-    const sourceApp = await getFrontmostAppInfo();
+    const sourceApp = activeSourceApp ?? (await getFrontmostAppInfo());
     const response = await fetch(`${SPEECHD_URL}/stop`, { method: "POST" });
     const body = (await response.json()) as { text?: string; audioPath?: string };
-    const text = body.text ?? "";
+    const text = applyReplacements(body.text ?? "", activeMode?.replacements ?? []);
     const audioPath = body.audioPath || activeRecordingPath || null;
     if (text) {
       broadcastPartialTranscript(text);
@@ -145,6 +165,8 @@ export async function stopDictation(): Promise<DictationStopResult> {
       broadcastPartialTranscript("");
     }
     activeRecordingPath = undefined;
+    activeMode = undefined;
+    activeSourceApp = undefined;
     startedAt = undefined;
     playDictationStopSound();
     setStatus("idle");
@@ -154,6 +176,8 @@ export async function stopDictation(): Promise<DictationStopResult> {
     broadcastPartialTranscript("");
     deleteFileIfPresent(activeRecordingPath);
     activeRecordingPath = undefined;
+    activeMode = undefined;
+    activeSourceApp = undefined;
     startedAt = undefined;
     setStatus("idle");
     return { text: "" };
@@ -187,6 +211,24 @@ async function insertAtCursor(text: string): Promise<void> {
     );
   });
   setTimeout(() => clipboard.writeText(previousClipboard), 2000);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Applies each rule's find/replace to the transcript in order. Default match
+ *  is case-insensitive substring; `caseSensitive` and `wholeWord` tighten it. */
+function applyReplacements(text: string, rules: ReplacementRule[]): string {
+  let result = text;
+  for (const rule of rules) {
+    if (!rule.from) continue;
+    let pattern = escapeRegExp(rule.from);
+    if (rule.wholeWord) pattern = `\\b${pattern}\\b`;
+    const flags = rule.caseSensitive ? "g" : "gi";
+    result = result.replace(new RegExp(pattern, flags), rule.to);
+  }
+  return result;
 }
 
 function createRecordingPath(): string {
