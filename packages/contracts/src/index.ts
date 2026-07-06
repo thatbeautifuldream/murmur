@@ -18,6 +18,9 @@ export const IpcChannels = {
   ON_WINDOW_FULLSCREEN_CHANGED: "window:fullscreen-changed",
   WINDOW_SET_PILL_INTERACTIVE: "window:set-pill-interactive",
   WINDOW_MOVE_PILL: "window:move-pill",
+  TRANSCRIPT_HISTORY_RESTORE: "transcript-history:restore",
+  MENU_TOGGLE_SIDEBAR: "menu:toggle-sidebar",
+  MENU_SHOW_KEYBOARD_SHORTCUTS: "menu:show-keyboard-shortcuts",
 } as const;
 
 /** Port for the localhost HTTP API the desktop app exposes so a plain
@@ -82,8 +85,9 @@ export interface DesktopBridge {
    *  clear. */
   onDictationPartialTranscript(listener: (text: string) => void): () => void;
   listTranscriptHistory(limit?: number): Promise<TranscriptHistoryEntry[]>;
-  deleteTranscriptHistoryEntry(id: string): Promise<void>;
-  clearTranscriptHistory(): Promise<void>;
+  deleteTranscriptHistoryEntry(id: string): Promise<TranscriptHistoryEntry | null>;
+  clearTranscriptHistory(): Promise<TranscriptHistoryEntry[]>;
+  restoreTranscriptHistoryEntries(entries: TranscriptHistoryEntry[]): Promise<void>;
   /** Reads a transcript's recorded audio off disk and returns it as a data
    *  URL for local playback — `null` if the entry has no audio or the file
    *  is missing. */
@@ -101,6 +105,8 @@ export interface DesktopBridge {
    *  drag itself (rather than a native `-webkit-app-region`) so the pill keeps
    *  its own cursor and the drag can't fight the click-through capture. */
   movePillBy(dx: number, dy: number): void;
+  onMenuToggleSidebar(listener: () => void): () => void;
+  onMenuShowKeyboardShortcuts(listener: () => void): () => void;
 }
 
 declare global {

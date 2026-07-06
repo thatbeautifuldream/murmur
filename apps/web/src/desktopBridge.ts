@@ -11,6 +11,7 @@ type HistoryBridge = Pick<
   | "listTranscriptHistory"
   | "deleteTranscriptHistoryEntry"
   | "clearTranscriptHistory"
+  | "restoreTranscriptHistoryEntries"
   | "readTranscriptAudio"
   | "onTranscriptHistoryChanged"
 >;
@@ -39,10 +40,21 @@ function createWebHistoryBridge(): HistoryBridge {
       return (await response.json()) as TranscriptHistoryEntry[];
     },
     deleteTranscriptHistoryEntry: async (id) => {
-      await fetch(`${LOCAL_API_BASE}/transcript-history/${id}`, { method: "DELETE" });
+      const response = await fetch(`${LOCAL_API_BASE}/transcript-history/${id}`, { method: "DELETE" });
+      if (!response.ok) return null;
+      return (await response.json()) as TranscriptHistoryEntry | null;
     },
     clearTranscriptHistory: async () => {
-      await fetch(`${LOCAL_API_BASE}/transcript-history`, { method: "DELETE" });
+      const response = await fetch(`${LOCAL_API_BASE}/transcript-history`, { method: "DELETE" });
+      if (!response.ok) return [];
+      return (await response.json()) as TranscriptHistoryEntry[];
+    },
+    restoreTranscriptHistoryEntries: async (entries) => {
+      await fetch(`${LOCAL_API_BASE}/transcript-history/restore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entries),
+      });
     },
     readTranscriptAudio: async (id) => {
       const response = await fetch(`${LOCAL_API_BASE}/transcript-history/${id}/audio`);

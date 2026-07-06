@@ -27,6 +27,8 @@ const bridge: DesktopBridge = {
   deleteTranscriptHistoryEntry: (id) =>
     ipcRenderer.invoke(IpcChannels.TRANSCRIPT_HISTORY_DELETE, id),
   clearTranscriptHistory: () => ipcRenderer.invoke(IpcChannels.TRANSCRIPT_HISTORY_CLEAR),
+  restoreTranscriptHistoryEntries: (entries) =>
+    ipcRenderer.invoke(IpcChannels.TRANSCRIPT_HISTORY_RESTORE, entries),
   readTranscriptAudio: (id) =>
     ipcRenderer.invoke(IpcChannels.TRANSCRIPT_HISTORY_READ_AUDIO, id),
   onDictationStatusChanged: (listener) => {
@@ -59,6 +61,16 @@ const bridge: DesktopBridge = {
       listener(isFullScreen);
     ipcRenderer.on(IpcChannels.ON_WINDOW_FULLSCREEN_CHANGED, wrapped);
     return () => ipcRenderer.removeListener(IpcChannels.ON_WINDOW_FULLSCREEN_CHANGED, wrapped);
+  },
+  onMenuToggleSidebar: (listener) => {
+    const wrapped = () => listener();
+    ipcRenderer.on(IpcChannels.MENU_TOGGLE_SIDEBAR, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.MENU_TOGGLE_SIDEBAR, wrapped);
+  },
+  onMenuShowKeyboardShortcuts: (listener) => {
+    const wrapped = () => listener();
+    ipcRenderer.on(IpcChannels.MENU_SHOW_KEYBOARD_SHORTCUTS, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.MENU_SHOW_KEYBOARD_SHORTCUTS, wrapped);
   },
 };
 

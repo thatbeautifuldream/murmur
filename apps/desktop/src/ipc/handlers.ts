@@ -6,6 +6,7 @@ import {
   deleteTranscriptHistoryEntry,
   listTranscriptHistory,
   readTranscriptAudio,
+  restoreTranscriptHistoryEntries,
 } from "../transcript-history";
 
 export function registerIpcHandlers(): void {
@@ -15,10 +16,13 @@ export function registerIpcHandlers(): void {
     listTranscriptHistory(limit),
   );
   ipcMain.handle(IpcChannels.TRANSCRIPT_HISTORY_DELETE, (_event, id: string) => {
-    deleteTranscriptHistoryEntry(id);
+    return deleteTranscriptHistoryEntry(id);
   });
   ipcMain.handle(IpcChannels.TRANSCRIPT_HISTORY_CLEAR, () => {
-    clearTranscriptHistory();
+    return clearTranscriptHistory();
+  });
+  ipcMain.handle(IpcChannels.TRANSCRIPT_HISTORY_RESTORE, (_event, entries) => {
+    restoreTranscriptHistoryEntries(entries);
   });
   ipcMain.handle(IpcChannels.TRANSCRIPT_HISTORY_READ_AUDIO, (_event, id: string) =>
     readTranscriptAudio(id),

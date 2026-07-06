@@ -9,6 +9,7 @@ import {
   deleteTranscriptHistoryEntry,
   getTranscriptAudioFile,
   listTranscriptHistory,
+  restoreTranscriptHistoryEntries,
 } from "./transcript-history";
 
 let server: Server | undefined;
@@ -81,8 +82,26 @@ function serveStatic(pathname: string, res: ServerResponse): void {
 
 function withCors(res: ServerResponse): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => {
+      body += chunk;
+    });
+    req.on("end", () => {
+      try {
+        resolve(body ? JSON.parse(body) : null);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on("error", reject);
+  });
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -127,9 +146,19 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   }
 
   if (segments.length === 1 && req.method === "DELETE") {
-    clearTranscriptHistory();
-    res.writeHead(204);
-    res.end();
+    sendJson(res, 200, clearTranscriptHistory());
+    return;
+  }
+
+  if (segments.length === 2 && segments[1] === "restore" && req.method === "POST") {
+    void readJsonBody(req)
+      .then((body) => {
+        const entries = Array.isArray(body) ? body : [];
+        restoreTranscriptHistoryEntries(entries as Parameters<typeof restoreTranscriptHistoryEntries>[0]);
+        res.writeHead(204);
+        res.end();
+      })
+      .catch(() => sendJson(res, 400, { error: "Invalid JSON" }));
     return;
   }
 
@@ -148,9 +177,7 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   }
 
   if (segments.length === 2 && req.method === "DELETE" && segments[1]) {
-    deleteTranscriptHistoryEntry(segments[1]);
-    res.writeHead(204);
-    res.end();
+    sendJson(res, 200, deleteTranscriptHistoryEntry(segments[1]));
     return;
   }
 

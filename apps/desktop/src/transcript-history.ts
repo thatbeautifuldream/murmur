@@ -199,26 +199,94 @@ export function listTranscriptHistory(limit = 100): TranscriptHistoryEntry[] {
   return rows.map(mapRow);
 }
 
-export function deleteTranscriptHistoryEntry(id: string): void {
-  const db = getDatabase();
-  const row = db
-    .prepare("SELECT audio_path FROM transcript_history WHERE id = ?")
-    .get(id) as { audio_path?: string | null } | undefined;
-  db.prepare("DELETE FROM transcript_history WHERE id = ?").run(id);
-  deleteAudioFile(row?.audio_path);
+export function restoreTranscriptHistoryEntries(entries: TranscriptHistoryEntry[]): void {
+  const statement = getDatabase().prepare(
+    `INSERT OR REPLACE INTO transcript_history (
+      id,
+      text,
+      locale,
+      source_app_name,
+      source_app_bundle_id,
+      source_process_id,
+      duration_ms,
+      audio_path,
+      audio_format,
+      audio_byte_size,
+      inserted,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+
+  for (const entry of entries) {
+    statement.run(
+      entry.id,
+      entry.text,
+      entry.locale,
+      entry.sourceAppName,
+      entry.sourceAppBundleId,
+      entry.sourceProcessId,
+      entry.durationMs,
+      entry.audioPath,
+      entry.audioFormat,
+      entry.audioByteSize,
+      entry.inserted ? 1 : 0,
+      entry.createdAt,
+    );
+  }
+
   broadcastHistoryChanged();
 }
 
-export function clearTranscriptHistory(): void {
+export function deleteTranscriptHistoryEntry(id: string): TranscriptHistoryEntry | null {
+  const db = getDatabase();
+  const row = db
+    .prepare(
+      `SELECT
+        id,
+        text,
+        locale,
+        source_app_name,
+        source_app_bundle_id,
+        source_process_id,
+        duration_ms,
+        audio_path,
+        audio_format,
+        audio_byte_size,
+        inserted,
+        created_at
+      FROM transcript_history
+      WHERE id = ?`,
+    )
+    .get(id) as TranscriptHistoryRow | undefined;
+  if (!row) return null;
+  db.prepare("DELETE FROM transcript_history WHERE id = ?").run(id);
+  broadcastHistoryChanged();
+  return mapRow(row);
+}
+
+export function clearTranscriptHistory(): TranscriptHistoryEntry[] {
   const db = getDatabase();
   const rows = db
-    .prepare("SELECT audio_path FROM transcript_history WHERE audio_path IS NOT NULL")
-    .all() as unknown as Array<{ audio_path: string | null }>;
+    .prepare(
+      `SELECT
+        id,
+        text,
+        locale,
+        source_app_name,
+        source_app_bundle_id,
+        source_process_id,
+        duration_ms,
+        audio_path,
+        audio_format,
+        audio_byte_size,
+        inserted,
+        created_at
+      FROM transcript_history`,
+    )
+    .all() as unknown as TranscriptHistoryRow[];
   db.exec("DELETE FROM transcript_history");
-  for (const row of rows) {
-    deleteAudioFile(row.audio_path);
-  }
   broadcastHistoryChanged();
+  return rows.map(mapRow);
 }
 
 export function getTranscriptAudioFile(id: string): { bytes: Buffer; mimeType: string } | null {

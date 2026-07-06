@@ -1,6 +1,9 @@
 import { Outlet, useRouterState } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { getDesktopBridge } from "@/desktopBridge";
 import { useSidebarHotkey } from "@/hooks/use-sidebar-hotkey";
+import { useUIStore } from "@/stores/ui-store";
 
 /** Murmur runs two kinds of windows off the same renderer bundle: the
  *  frameless, transparent, bottom-anchored dictation pill (see
@@ -9,9 +12,14 @@ import { useSidebarHotkey } from "@/hooks/use-sidebar-hotkey";
  *  apps/desktop/src/app-window.ts). */
 export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   // Registered once here rather than per-page, since useSidebarChrome() (used
   // by every page for its own Titlebar) is called many times over.
   useSidebarHotkey();
+
+  useEffect(() => {
+    return getDesktopBridge()?.onMenuToggleSidebar(toggleSidebar);
+  }, [toggleSidebar]);
 
   if (pathname === "/") {
     return (

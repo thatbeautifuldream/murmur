@@ -7,6 +7,10 @@ module.exports = {
     buildResources: "build",
   },
   files: ["dist-electron/**/*", "package.json"],
+  // uiohook-napi (the only native dep) ships a prebuilt .node, so there is
+  // nothing to compile. Skipping @electron/rebuild avoids its node_modules walk,
+  // which crashes on any stale/dangling symlink bun leaves in node_modules.
+  npmRebuild: false,
   afterPack: "./scripts/adhoc-sign.cjs",
   asar: true,
   // uiohook-napi ships a prebuilt .node; a native binary can't be dlopen'd

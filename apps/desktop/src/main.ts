@@ -193,11 +193,12 @@ function bootstrap(): void {
   // Grow the window to the full pill footprint only while dictation is active,
   // and drop it back to the low idle height (so idle clicks fall through to
   // whatever's underneath) once it stops.
-  onDictationStatusChanged((status) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      applyPillBounds(mainWindow, isPillExpanded(status));
-    }
-  });
+    onDictationStatusChanged((status) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        applyPillBounds(mainWindow, isPillExpanded(status));
+      }
+      installApplicationMenu();
+    });
   startSpeechd();
   initializeAutoUpdater();
 

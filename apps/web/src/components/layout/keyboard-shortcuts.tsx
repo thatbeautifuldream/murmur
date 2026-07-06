@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { useEffect } from "react";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import { KeyboardShortcutsDialog } from "@/components/ui/keyboard-shortcuts-dialog";
+import { getDesktopBridge } from "@/desktopBridge";
 
 type TKeyboardShortcutsContext = {
   openShortcuts: () => void;
@@ -25,6 +27,10 @@ function KeyboardShortcutsRuntime({ children }: { children: ReactNode }) {
     ignoreInputs: false,
     meta: { name: "Keyboard shortcuts", description: "Show keyboard shortcuts" },
   });
+
+  useEffect(() => {
+    return getDesktopBridge()?.onMenuShowKeyboardShortcuts(() => setOpen(true));
+  }, []);
 
   return (
     <KeyboardShortcutsContext.Provider value={{ openShortcuts: () => setOpen(true) }}>

@@ -62,11 +62,11 @@ function useDictation() {
  *  FLIP, which visibly stretches/squashes the waveform content mid-resize
  *  given how extreme the aspect-ratio swing is (4px tall -> 44px tall).
  *  Animating `width`/`height` directly causes genuine reflow each frame
- *  instead, so the child never gets scaled. Background/box-shadow stay a
- *  plain CSS transition even though everything else moved to Motion —
- *  they're multi-stop `color-mix()`/`var()`-based gradients, which the
- *  browser's own CSS interpolator crossfades correctly but Motion's
- *  animate() can't parse. */
+ *  instead, so the child never gets scaled. The idle and expanded surfaces
+ *  (background + drop shadow) are two stacked layers crossfaded on `opacity`
+ *  rather than a CSS `box-shadow` transition — animating a shadow repaints
+ *  its bitmap every frame, which was the main source of the pill jank on the
+ *  transparent overlay window. */
 function DictationRoute() {
   const { status, partialText } = useDictation();
   const listening = status === "listening";
@@ -174,19 +174,26 @@ function DictationRoute() {
     }
   };
 
-  const durationMs = expanded ? 250 : 150;
+  // Sequence the collapse: the waveform fades out first, then the shape
+  // shrinks a beat later, so the box never crushes the still-visible content
+  // (which read as haphazard). Expand stays the immediate hotkey reaction —
+  // shape grows first, content fades in after it. Collapse also gets a gentle
+  // ease-in-out so it settles rather than slamming shut.
   const shapeTransition = reduceMotion
     ? { duration: 0 }
-    : { duration: durationMs / 1000, ease: [0.22, 1, 0.36, 1] as const };
-  // A plain inline `transition` string instead of a Tailwind class — Tailwind's
-  // `transition-[…]` arbitrary-value parser doesn't accept a comma-separated
-  // property list like `background,box-shadow`, so that class silently never
-  // generated any CSS, leaving these two properties untransitioned (they were
-  // popping instantly instead of crossfading, which read as the exit
-  // animation being broken).
-  const surfaceTransition = reduceMotion
-    ? "none"
-    : `background ${durationMs}ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow ${durationMs}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+    : {
+        duration: expanded ? 0.25 : 0.2,
+        delay: expanded ? 0 : 0.09,
+        ease: (expanded ? [0.22, 1, 0.36, 1] : [0.4, 0, 0.2, 1]) as [
+          number,
+          number,
+          number,
+          number,
+        ],
+      };
+  const contentTransition = reduceMotion
+    ? { duration: 0 }
+    : { duration: expanded ? 0.15 : 0.11, delay: expanded ? 0.1 : 0, ease: "easeOut" as const };
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -202,7 +209,8 @@ function DictationRoute() {
             className="max-h-56 max-w-72 overflow-y-auto whitespace-pre-wrap break-words rounded-2xl squircle px-3 py-2 text-center text-xs"
             style={{
               WebkitAppRegion: "no-drag",
-              background: "color-mix(in srgb, var(--foreground) 10%, transparent)",
+              background: "var(--pill-bg-expanded)",
+              boxShadow: "var(--pill-shadow-expanded)",
             } as React.CSSProperties}
           >
             {partialText}
@@ -224,49 +232,71 @@ function DictationRoute() {
           dragRef.current = { lastX: e.screenX, lastY: e.screenY, moved: false };
         }}
         ref={pillRef}
+        // Deliberately animate real `width`/`height` (not Motion's `layout`
+        // prop): `layout` drives size changes with a transform-scale FLIP,
+        // which skews the waveform mid-resize and slides it from its old
+        // centre as the pill grows, given how extreme the aspect swing is
+        // (4px tall -> 44px tall). Animating the box directly reflows instead,
+        // so the child is never scaled or repositioned — it just fades.
         initial={false}
-        animate={{
-          width: expanded ? 240 : 56,
-          height: expanded ? 44 : 4,
-        }}
+        animate={{ width: expanded ? 240 : 56, height: expanded ? 44 : 4 }}
         transition={shapeTransition}
         className={cn(
-          "flex items-center justify-center overflow-hidden rounded-full",
+          "relative rounded-full",
           processing
             ? "cursor-default"
             : expanded
               ? "cursor-pointer"
               : "cursor-grab active:cursor-grabbing",
         )}
-        style={
-          {
-            transition: surfaceTransition,
-            background: expanded
-              ? "var(--pill-bg-expanded)"
-              : "color-mix(in srgb, var(--foreground) 20%, transparent)",
-            boxShadow: expanded ? "var(--pill-shadow-expanded)" : "none",
-          } as React.CSSProperties
-        }
       >
+        {/* Crossfade the two surfaces (idle flatline vs. expanded pill, with
+            its drop shadow) with `opacity` instead of transitioning
+            `background`/`box-shadow` — an animated `box-shadow` repaints the
+            shadow bitmap every frame, whereas opacity stays on the compositor.
+            These carry the shadow, so the pill itself must NOT clip (an
+            ancestor `overflow-hidden` would swallow the shadow); the waveform
+            is clipped by its own wrapper below instead. */}
         <motion.div
-          className="w-full px-4"
+          className="absolute inset-0 rounded-full"
+          initial={false}
+          animate={{ opacity: expanded ? 0 : 1 }}
+          transition={shapeTransition}
+          style={{ background: "color-mix(in srgb, var(--foreground) 20%, transparent)" }}
+        />
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          initial={false}
           animate={{ opacity: expanded ? 1 : 0 }}
-          transition={reduceMotion ? { duration: 0 } : { duration: 0.15, delay: expanded ? 0.1 : 0 }}
-          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-        >
-          <MicrophoneWaveform
-            active={listening}
-            processing={processing}
-            height={22}
-            barWidth={2.5}
-            barGap={2}
-            barHeight={3}
-            fadeEdges
-            fadeWidth={20}
-            sensitivity={1.5}
-            onError={handleMicError}
-          />
-        </motion.div>
+          transition={shapeTransition}
+          style={
+            {
+              background: "var(--pill-bg-expanded)",
+              boxShadow: "var(--pill-shadow-expanded)",
+            } as React.CSSProperties
+          }
+        />
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-full">
+          <motion.div
+            className="w-full px-4"
+            animate={{ opacity: expanded ? 1 : 0 }}
+            transition={contentTransition}
+            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+          >
+            <MicrophoneWaveform
+              active={listening}
+              processing={processing}
+              height={22}
+              barWidth={2.5}
+              barGap={2}
+              barHeight={3}
+              fadeEdges
+              fadeWidth={20}
+              sensitivity={1.5}
+              onError={handleMicError}
+            />
+          </motion.div>
+        </div>
       </motion.div>
     </div>
   );
