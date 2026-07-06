@@ -33,8 +33,15 @@ final class SpeechEngine {
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
+        request.taskHint = .dictation
+        request.addsPunctuation = true
         if !contextualStrings.isEmpty {
             request.contextualStrings = contextualStrings
+        }
+        if #available(macOS 14, *),
+           let config = LanguageModelStore.shared.configuration(for: contextualStrings, locale: locale) {
+            request.requiresOnDeviceRecognition = true
+            request.customizedLanguageModel = config
         }
         self.request = request
         latestText = ""
