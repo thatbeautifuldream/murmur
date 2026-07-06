@@ -72,6 +72,9 @@ const bridge: DesktopBridge = {
     ipcRenderer.on(IpcChannels.MENU_SHOW_KEYBOARD_SHORTCUTS, wrapped);
     return () => ipcRenderer.removeListener(IpcChannels.MENU_SHOW_KEYBOARD_SHORTCUTS, wrapped);
   },
+  getActivationShortcut: () => ipcRenderer.invoke(IpcChannels.SETTINGS_GET_ACTIVATION_SHORTCUT),
+  setActivationShortcut: (shortcut) =>
+    ipcRenderer.invoke(IpcChannels.SETTINGS_SET_ACTIVATION_SHORTCUT, shortcut),
 };
 
 contextBridge.exposeInMainWorld("desktopBridge", bridge);

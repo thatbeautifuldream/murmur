@@ -21,6 +21,8 @@ export const IpcChannels = {
   TRANSCRIPT_HISTORY_RESTORE: "transcript-history:restore",
   MENU_TOGGLE_SIDEBAR: "menu:toggle-sidebar",
   MENU_SHOW_KEYBOARD_SHORTCUTS: "menu:show-keyboard-shortcuts",
+  SETTINGS_GET_ACTIVATION_SHORTCUT: "settings:get-activation-shortcut",
+  SETTINGS_SET_ACTIVATION_SHORTCUT: "settings:set-activation-shortcut",
 } as const;
 
 /** Port for the localhost HTTP API the desktop app exposes so a plain
@@ -35,6 +37,20 @@ export type Platform = "darwin" | "win32" | "linux";
  *  transcript comes back; `inserting` is the brief window after that where
  *  the transcript is being pasted into the frontmost app. */
 export type DictationStatus = "idle" | "listening" | "processing" | "inserting" | "error";
+
+/** The gesture that toggles dictation from any app. `option-tap` is the default
+ *  — a lone tap of the Option key, caught by a system-wide key hook (needs macOS
+ *  Accessibility). `combo` is any user-recorded accelerator (e.g. `Mod+Shift+D`)
+ *  registered as an Electron global shortcut. `hotkey` is a portable
+ *  `@tanstack/hotkeys` string. */
+export type ActivationShortcut = { kind: "option-tap" } | { kind: "combo"; hotkey: string };
+
+export const DEFAULT_ACTIVATION_SHORTCUT: ActivationShortcut = { kind: "option-tap" };
+
+export interface SetActivationShortcutResult {
+  ok: boolean;
+  error?: string;
+}
 
 export interface DictationStartResult {
   ok: boolean;
@@ -107,6 +123,12 @@ export interface DesktopBridge {
   movePillBy(dx: number, dy: number): void;
   onMenuToggleSidebar(listener: () => void): () => void;
   onMenuShowKeyboardShortcuts(listener: () => void): () => void;
+  /** The gesture that toggles dictation from any app. */
+  getActivationShortcut(): Promise<ActivationShortcut>;
+  /** Persists and re-registers the activation shortcut. Fails (without changing
+   *  the live shortcut) if a `combo` can't be registered — e.g. already claimed
+   *  by another app. */
+  setActivationShortcut(shortcut: ActivationShortcut): Promise<SetActivationShortcutResult>;
 }
 
 declare global {

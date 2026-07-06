@@ -1,13 +1,9 @@
 import { app, BrowserWindow, screen, session, systemPreferences } from "electron";
 import * as path from "node:path";
 import { registerIpcHandlers } from "./ipc/handlers";
-import { toggleDictation, onDictationStatusChanged } from "./dictation";
+import { onDictationStatusChanged } from "./dictation";
 import type { DictationStatus } from "@app/contracts";
-import {
-  hasAccessibilityAccess,
-  listenForOptionTap,
-  openAccessibilitySettings,
-} from "./option-key-listener";
+import { initActivationShortcut, teardownActivationShortcut } from "./activation-shortcut";
 import { installApplicationMenu } from "./window-chrome";
 import { startSpeechd, stopSpeechd } from "./speechd-manager";
 import { installTray, uninstallTray } from "./tray";
@@ -128,27 +124,6 @@ function createMainWindow(): BrowserWindow {
 }
 
 let mainWindow: BrowserWindow | undefined;
-let stopOptionListener: (() => void) | undefined;
-let accessibilityPoll: ReturnType<typeof setInterval> | undefined;
-
-// The Option-tap hook needs macOS Accessibility. Prompt for it, and since the
-// grant can't attach to an already-running tap (and the user grants it out of
-// band in System Settings), start the listener only once trusted — polling so
-// no app relaunch is needed after the toggle is flipped.
-function startOptionListenerWhenTrusted(): void {
-  if (hasAccessibilityAccess(true)) {
-    stopOptionListener = listenForOptionTap(() => void toggleDictation());
-    return;
-  }
-  openAccessibilitySettings();
-  accessibilityPoll = setInterval(() => {
-    if (hasAccessibilityAccess(false)) {
-      clearInterval(accessibilityPoll);
-      accessibilityPoll = undefined;
-      stopOptionListener = listenForOptionTap(() => void toggleDictation());
-    }
-  }, 1000);
-}
 
 // A second instance would spawn a second pill and a second global-key
 // listener — both toggling the same murmur-speechd. Refuse to duplicate:
@@ -202,7 +177,7 @@ function bootstrap(): void {
   startSpeechd();
   initializeAutoUpdater();
 
-  startOptionListenerWhenTrusted();
+  initActivationShortcut();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -213,8 +188,7 @@ function bootstrap(): void {
 }
 
 app.on("will-quit", () => {
-  if (accessibilityPoll) clearInterval(accessibilityPoll);
-  stopOptionListener?.();
+  teardownActivationShortcut();
   uninstallTray();
   stopSpeechd();
   stopLocalServer();

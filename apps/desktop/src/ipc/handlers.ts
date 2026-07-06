@@ -1,6 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
-import { IpcChannels, type Theme } from "@app/contracts";
+import { IpcChannels, type ActivationShortcut, type Theme } from "@app/contracts";
 import { startDictation, stopDictation } from "../dictation";
+import { changeActivationShortcut } from "../activation-shortcut";
+import { getActivationShortcut } from "../settings-store";
 import {
   clearTranscriptHistory,
   deleteTranscriptHistoryEntry,
@@ -68,6 +70,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IpcChannels.SET_THEME, (_event, theme: Theme) => {
     nativeTheme.themeSource = theme;
   });
+
+  ipcMain.handle(IpcChannels.SETTINGS_GET_ACTIVATION_SHORTCUT, () => getActivationShortcut());
+
+  ipcMain.handle(
+    IpcChannels.SETTINGS_SET_ACTIVATION_SHORTCUT,
+    (_event, shortcut: ActivationShortcut) => changeActivationShortcut(shortcut),
+  );
 
   nativeTheme.on("updated", () => {
     const theme: Theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
