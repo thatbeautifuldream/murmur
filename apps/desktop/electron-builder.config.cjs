@@ -1,3 +1,5 @@
+const notarize = process.env.MURMUR_NOTARIZE === "1";
+
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
   appId: "com.murmur.app",
@@ -11,7 +13,7 @@ module.exports = {
   // nothing to compile. Skipping @electron/rebuild avoids its node_modules walk,
   // which crashes on any stale/dangling symlink bun leaves in node_modules.
   npmRebuild: false,
-  afterPack: "./scripts/adhoc-sign.cjs",
+  afterPack: notarize ? undefined : "./scripts/adhoc-sign.cjs",
   asar: true,
   // uiohook-napi ships a prebuilt .node; a native binary can't be dlopen'd
   // from inside the asar archive, so it must live on disk as a real file.
@@ -44,11 +46,14 @@ module.exports = {
       NSInputMonitoringUsageDescription:
         "Murmur listens for the Option key to start and stop dictation.",
     },
-    // No Developer ID / notarization. electron-builder's own signing is skipped
-    // for unsigned releases, so ad-hoc signing is done in the afterPack hook
-    // below — on Apple Silicon the kernel SIGKILLs any Mach-O (the app bundle,
-    // the .node addon, the bundled Swift helper) lacking a valid signature.
-    identity: null,
+    // Local builds stay ad-hoc signed through afterPack. Public releases set
+    // MURMUR_NOTARIZE=1 so electron-builder uses Developer ID signing and
+    // submits the signed app for Apple notarization.
+    identity: notarize ? process.env.CSC_NAME || undefined : null,
+    hardenedRuntime: true,
+    entitlements: "build/entitlements.mac.plist",
+    entitlementsInherit: "build/entitlements.mac.plist",
+    notarize,
     // Bundles the release build of native/speechd so the packaged app is
     // self-contained — build it first with "bun run speechd:build:release".
     extraResources: [

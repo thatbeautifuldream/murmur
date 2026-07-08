@@ -14,9 +14,17 @@ fi
 
 echo "==> Pre-flight checks"
 
+export MURMUR_NOTARIZE="${MURMUR_NOTARIZE:-1}"
+
 missing=()
 # electron-builder uploads to GitHub Releases with this token (repo scope).
 [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && missing+=("GH_TOKEN")
+
+if [[ "${MURMUR_NOTARIZE}" == "1" ]]; then
+    [[ -z "${APPLE_ID:-}" ]] && missing+=("APPLE_ID")
+    [[ -z "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]] && missing+=("APPLE_APP_SPECIFIC_PASSWORD")
+    [[ -z "${APPLE_TEAM_ID:-}" ]] && missing+=("APPLE_TEAM_ID")
+fi
 
 if [[ ${#missing[@]} -gt 0 ]]; then
     echo "Missing env vars: ${missing[*]}"
@@ -46,10 +54,19 @@ echo "==> Building web + desktop bundles..."
 (cd "${ROOT_DIR}" && bun run build)
 
 echo ""
-echo "==> Packaging (unsigned) and publishing ${VERSION} to GitHub Releases..."
+if [[ "${MURMUR_NOTARIZE}" == "1" ]]; then
+    echo "==> Packaging, signing, notarizing, and publishing ${VERSION} to GitHub Releases..."
+else
+    echo "==> Packaging (unsigned) and publishing ${VERSION} to GitHub Releases..."
+fi
 cd "${APP_DIR}"
-PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 CSC_IDENTITY_AUTO_DISCOVERY=false \
-    bunx electron-builder --mac --config electron-builder.config.cjs --publish always
+if [[ "${MURMUR_NOTARIZE}" == "1" ]]; then
+    PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 \
+        bunx electron-builder --mac --config electron-builder.config.cjs --publish always
+else
+    PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 CSC_IDENTITY_AUTO_DISCOVERY=false \
+        bunx electron-builder --mac --config electron-builder.config.cjs --publish always
+fi
 
 echo ""
 echo "==> Release complete!"
