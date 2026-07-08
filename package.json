@@ -18,6 +18,7 @@
     "package:unsigned": "bun run speechd:build:release && turbo run build && bun run --cwd apps/desktop package:unsigned",
     "package:signed": "bun run speechd:build:release && turbo run build && bun run --cwd apps/desktop package:signed",
     "package:install": "bun run package:signed && bun run --cwd apps/desktop install:mac",
+    "release:mac": "bun run --cwd apps/desktop release:mac",
     "install:mac": "bun run --cwd apps/desktop install:mac",
     "speechd:build": "swift build --package-path native/speechd",
     "speechd:build:release": "swift build -c release --package-path native/speechd"
