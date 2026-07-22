@@ -1,13 +1,33 @@
+import type { MouseEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowUpRight02Icon } from "@hugeicons/core-free-icons";
+import { getDesktopBridge } from "@/desktopBridge";
 import { useSidebarChrome } from "@/hooks/use-sidebar-chrome";
 import { Titlebar } from "@/components/layout/titlebar";
-import { Item, ItemContent, ItemGroup, ItemDescription, ItemTitle } from "@/components/ui/item";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemGroup,
+  ItemDescription,
+  ItemTitle,
+} from "@/components/ui/item";
+
+const AUTHOR_URL = "https://milindmishra.com";
 
 declare const __APP_VERSION__: string;
 
 export const Route = createFileRoute("/about")({
   component: AboutRoute,
 });
+
+function openAuthorLink(event: MouseEvent<HTMLAnchorElement>) {
+  const bridge = getDesktopBridge();
+  if (!bridge) return;
+  event.preventDefault();
+  void bridge.openExternal(AUTHOR_URL);
+}
 
 function AboutRoute() {
   const chrome = useSidebarChrome();
@@ -34,6 +54,25 @@ function AboutRoute() {
               <ItemTitle>Version</ItemTitle>
               <ItemDescription className="tabular-nums">{__APP_VERSION__}</ItemDescription>
             </ItemContent>
+          </Item>
+          <Item variant="outline" asChild>
+            <a
+              href={AUTHOR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={openAuthorLink}
+            >
+              <ItemContent>
+                <ItemTitle>Built by Milind Mishra</ItemTitle>
+                <ItemDescription>milindmishra.com</ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <HugeiconsIcon
+                  icon={ArrowUpRight02Icon}
+                  className="size-4 text-muted-foreground"
+                />
+              </ItemActions>
+            </a>
           </Item>
         </ItemGroup>
       </div>
