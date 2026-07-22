@@ -13,7 +13,7 @@ import Speech
 final class LanguageModelStore {
     static let shared = LanguageModelStore()
 
-    private let identifier = "work.foyer.murmur.customlm"
+    private let identifier = "com.milind.murmur.customlm"
     private let cacheDir: URL
     private let queue = DispatchQueue(label: "murmur.languagemodel")
     private var preparing: Set<String> = []
