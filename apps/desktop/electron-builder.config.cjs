@@ -51,6 +51,12 @@ module.exports = {
     // submits the signed app for Apple notarization.
     identity: notarize ? process.env.CSC_NAME || undefined : null,
     hardenedRuntime: true,
+    // Apple's default timestamp server intermittently drops requests when
+    // codesign hammers it in parallel; DigiCert's RFC 3161 endpoint is a
+    // trusted TSA that holds up under load. Paired with CSC_PARALLEL_LIMIT=2
+    // in release-mac.sh. (Key is `timestamp`, not `timestampServer` — the
+    // latter is Windows-only and rejected by the mac schema.)
+    timestamp: "http://timestamp.digicert.com",
     entitlements: "build/entitlements.mac.plist",
     entitlementsInherit: "build/entitlements.mac.plist",
     notarize,

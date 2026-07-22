@@ -61,10 +61,10 @@ else
 fi
 cd "${APP_DIR}"
 if [[ "${MURMUR_NOTARIZE}" == "1" ]]; then
-    PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 \
+    PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 CSC_PARALLEL_LIMIT=2 \
         bunx electron-builder --mac --config electron-builder.config.cjs --publish always
 else
-    PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 CSC_IDENTITY_AUTO_DISCOVERY=false \
+    PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 CSC_IDENTITY_AUTO_DISCOVERY=false CSC_PARALLEL_LIMIT=2 \
         bunx electron-builder --mac --config electron-builder.config.cjs --publish always
 fi
 
