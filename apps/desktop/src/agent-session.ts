@@ -134,7 +134,10 @@ async function ensureSession(): Promise<AgentSession> {
     model: defaultModel,
     modelRuntime,
     resourceLoader,
-    sessionManager: pi.SessionManager.inMemory(resolvedCwd),
+    // Persist sessions to ~/.pi/agent/sessions/<encoded-cwd>/ so a conversation
+    // started by voice can later be resumed from the `pi` TUI (`pi --continue`,
+    // `pi --resume`, or `pi --session <id>` in the same cwd).
+    sessionManager: pi.SessionManager.create(resolvedCwd),
   });
   session = created;
 
