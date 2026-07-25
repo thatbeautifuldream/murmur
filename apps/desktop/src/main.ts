@@ -1,11 +1,12 @@
 import { app, BrowserWindow, screen, session, systemPreferences } from "electron";
 import * as path from "node:path";
 import { registerIpcHandlers } from "./ipc/handlers";
-import { onDictationStatusChanged } from "./dictation";
+import { getDictationStatus, onDictationStatusChanged } from "./dictation";
 import type { DictationStatus } from "@app/contracts";
 import { initActivationShortcut, teardownActivationShortcut } from "./activation-shortcut";
 import { installApplicationMenu } from "./window-chrome";
 import { startSpeechd, stopSpeechd } from "./speechd-manager";
+import { getCachedNotchGeometry, refreshNotchGeometry } from "./notch-geometry-manager";
 import { installTray, uninstallTray } from "./tray";
 import { closeTranscriptHistoryStore } from "./transcript-history";
 import { resolveRendererUrl } from "./app-window";
@@ -13,23 +14,33 @@ import { startLocalServer, stopLocalServer } from "./local-server";
 import { initializeAutoUpdater } from "./updater";
 
 // Footprint sized for the expanded (listening) pill, with the pill itself
-// bottom-anchored inside it via flex. The extra margin beyond the pill's own
+// top-anchored inside it via flex. The extra margin beyond the pill's own
 // size (see app-shell's padding) isn't just breathing room — the CSS box
 // shadow needs real transparent canvas to blur into, or the window's own
 // rectangular bounds hard-clip it into a visible cut edge. The height/width
-// also leave room above the pill for the live raw-transcript caption to
+// also leave room below the pill for the live raw-transcript caption to
 // grow into (up to its own max-h/max-w, then it scrolls internally).
 //
-// When idle, though, that full canvas would swallow every click over a large
-// bottom-center patch of the screen even though only the 4px flatline is
-// visible. So the window collapses to a low idle height (just enough for the
-// flatline plus its transparent padding) and only grows to the full footprint
-// while dictation is active — the bottom edge stays pinned so the pill never
-// moves.
+// When idle, the window is sized and positioned to the physical MacBook
+// notch's own pixel dimensions (see notch-geometry-manager.ts) so it never
+// swallows clicks over real menu-bar content. It can't render truly flush at
+// y:0 though — macOS's window server reserves the menu-bar strip itself, and
+// no window (any level, any type) can paint above it without the private
+// CGSSpace APIs native notch-utility apps use, which are unreachable from
+// Electron. In practice the window ends up a few points below the real
+// notch/menu-bar regardless of the y we request. Rather than show a visibly
+// detached black rectangle there, the renderer paints nothing at all in the
+// idle state (see routes/index.tsx) — the hotkey/hover hit-test area is still
+// exactly where the real notch is, it's just invisible until dictation
+// starts, at which point the pill grows downward from that same anchor. On
+// non-notched hardware it falls back to a small idle height inside a wider
+// hit-test window — the notch case leaves the same kind of low idle
+// footprint that only grows to the full expanded size while dictation is
+// active — the top edge stays pinned so the pill only ever grows downward.
 const PILL_WIDTH = 360;
 const PILL_AREA_HEIGHT = 340;
 const PILL_IDLE_HEIGHT = 64;
-const BOTTOM_MARGIN = 28;
+const TOP_MARGIN = 8;
 
 function isPillExpanded(status: DictationStatus): boolean {
   return status === "listening" || status === "processing" || status === "inserting";
@@ -61,46 +72,85 @@ function schedulePillBounds(window: BrowserWindow, expanded: boolean): void {
   }, COLLAPSE_ANIMATION_MS);
 }
 
-// Where the pill is anchored: its left edge and its bottom edge. Defaults to
-// bottom-center, but a drag overwrites it (see the "move" handler) so the
-// resize below never yanks a repositioned pill back to the middle.
-let pillAnchor: { x: number; bottom: number } | undefined;
+// The Electron `Display` that actually has the notch, matched against the
+// native helper's reported screen size — `screen.getPrimaryDisplay()` isn't
+// reliably the built-in display once an external monitor is connected.
+function pillDisplay(): Electron.Display {
+  const geometry = getCachedNotchGeometry();
+  if (geometry) {
+    const match = screen
+      .getAllDisplays()
+      .find(
+        (d) =>
+          Math.abs(d.bounds.width - geometry.screenWidth) < 1 &&
+          Math.abs(d.bounds.height - geometry.screenHeight) < 1,
+      );
+    if (match) return match;
+  }
+  return screen.getPrimaryDisplay();
+}
 
-function defaultPillAnchor(): { x: number; bottom: number } {
-  const { workArea } = screen.getPrimaryDisplay();
+// Where the pill is anchored: the horizontal center it's docked around, and
+// its top edge — the notch's own center (or screen-top-center on non-notched
+// hardware). The pill isn't user-repositionable (it's meant to read as part
+// of the notch itself), so this is always recomputed fresh rather than
+// persisted; it only actually changes when the notch geometry does (see the
+// display-change handling in bootstrap). Center (not left edge) is what's
+// anchored on because idle and expanded widths differ on notched hardware —
+// anchoring on center keeps both states concentric on the same point.
+function pillAnchor(): { centerX: number; top: number } {
+  const display = pillDisplay();
+  const geometry = getCachedNotchGeometry();
+  if (geometry?.hasNotch) {
+    return {
+      centerX: display.bounds.x + geometry.notchX + geometry.notchWidth / 2,
+      top: display.bounds.y,
+    };
+  }
   return {
-    x: Math.round(workArea.x + (workArea.width - PILL_WIDTH) / 2),
-    bottom: workArea.y + workArea.height - BOTTOM_MARGIN,
+    centerX: display.workArea.x + display.workArea.width / 2,
+    top: display.workArea.y + TOP_MARGIN,
   };
 }
 
-// Keep the window bottom-anchored while swapping between the idle and expanded
-// heights, so the pill holds its on-screen position through the resize.
+// Keep the window top-anchored while swapping between the idle and expanded
+// sizes, so the pill holds its on-screen position through the resize. Idle
+// size matches the physical notch exactly when one is present (flush, no
+// gap); expanded always grows to the full footprint, top edge pinned so
+// growth is purely downward.
 function applyPillBounds(window: BrowserWindow, expanded: boolean): void {
-  const anchor = pillAnchor ?? defaultPillAnchor();
-  const height = expanded ? PILL_AREA_HEIGHT : PILL_IDLE_HEIGHT;
+  const anchor = pillAnchor();
+  const geometry = getCachedNotchGeometry();
+  const notch = geometry?.hasNotch ? geometry : undefined;
+  const width = expanded ? PILL_WIDTH : (notch?.notchWidth ?? PILL_WIDTH);
+  const height = expanded ? PILL_AREA_HEIGHT : (notch?.notchHeight ?? PILL_IDLE_HEIGHT);
   window.setBounds({
-    x: anchor.x,
-    y: Math.round(anchor.bottom - height),
-    width: PILL_WIDTH,
-    height,
+    x: Math.round(anchor.centerX - width / 2),
+    y: Math.round(anchor.top),
+    width: Math.round(width),
+    height: Math.round(height),
   });
-  // While idle the flatline is decorative — the hotkey is the control surface —
-  // so let every click fall through to whatever's underneath. `forward` still
-  // delivers mouse-move so hover would work if we ever needed it; the window
-  // recaptures clicks only once it expands into the interactive pill.
+  // While idle the flatline/notch-flush shape is decorative — the hotkey is
+  // the control surface — so let every click fall through to whatever's
+  // underneath. `forward` still delivers mouse-move so hover would work if we
+  // ever needed it; the window recaptures clicks only once it expands into
+  // the interactive pill.
   window.setIgnoreMouseEvents(!expanded, { forward: true });
 }
 
 function createMainWindow(): BrowserWindow {
   const isMac = process.platform === "darwin";
-  const { workArea } = screen.getPrimaryDisplay();
+  const anchor = pillAnchor();
+  const geometry = getCachedNotchGeometry();
+  const notch = geometry?.hasNotch ? geometry : undefined;
+  const idleWidth = notch?.notchWidth ?? PILL_WIDTH;
+  const idleHeight = notch?.notchHeight ?? PILL_IDLE_HEIGHT;
 
   const window = new BrowserWindow({
-    width: PILL_WIDTH,
-    height: PILL_IDLE_HEIGHT,
-    x: Math.round(workArea.x + (workArea.width - PILL_WIDTH) / 2),
-    y: Math.round(workArea.y + workArea.height - PILL_IDLE_HEIGHT - BOTTOM_MARGIN),
+    width: Math.round(idleWidth),
+    height: Math.round(idleHeight),
+    x: Math.round(anchor.centerX - idleWidth / 2),
+    y: Math.round(anchor.top),
     title: "Murmur",
     frame: false,
     transparent: true,
@@ -108,6 +158,7 @@ function createMainWindow(): BrowserWindow {
     backgroundColor: "#00000000",
     alwaysOnTop: true,
     resizable: false,
+    movable: false,
     skipTaskbar: true,
     fullscreenable: false,
     webPreferences: {
@@ -121,11 +172,15 @@ function createMainWindow(): BrowserWindow {
   // Float over full-screen apps and every Space, since dictation needs to
   // work no matter what has focus. macOS treats a full-screen app as its own
   // Space, so this has to be reasserted once the window is actually up —
-  // setting it only at construction time is unreliable.
+  // setting it only at construction time is unreliable. Level "status" (not
+  // "screen-saver") sits just above the menu bar, matching where notch-dock
+  // reference apps (e.g. Boring Notch's `.mainMenu + 3`) actually float —
+  // "screen-saver" is meant for full-screen takeover surfaces and risks
+  // fighting the real screensaver/lock transitions.
   const floatEverywhere = () => {
     if (!isMac) return;
     window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    window.setAlwaysOnTop(true, "screen-saver");
+    window.setAlwaysOnTop(true, "status");
   };
   floatEverywhere();
   window.once("ready-to-show", floatEverywhere);
@@ -133,16 +188,6 @@ function createMainWindow(): BrowserWindow {
 
   // Starts idle, so clicks pass straight through until dictation expands it.
   window.setIgnoreMouseEvents(true, { forward: true });
-
-  // Remember wherever the pill is dragged to (by its left/bottom edge) so the
-  // idle<->expanded resize re-anchors there instead of snapping to center. Our
-  // own setBounds re-fires this, but it writes back the same anchor, so it's a
-  // no-op in that case.
-  window.on("move", () => {
-    if (window.isDestroyed()) return;
-    const { x, y, height } = window.getBounds();
-    pillAnchor = { x, bottom: y + height };
-  });
 
   void window.loadURL(resolveRendererUrl());
 
@@ -190,6 +235,10 @@ function bootstrap(): void {
   startLocalServer();
   installApplicationMenu();
   installTray();
+  // Needed before the window is created so its initial idle bounds are
+  // sized to the real notch instead of the PILL_WIDTH/PILL_IDLE_HEIGHT
+  // fallback for one frame.
+  await refreshNotchGeometry();
   mainWindow = createMainWindow();
   // Grow the window to the full pill footprint only while dictation is active,
   // and drop it back to the low idle height (so idle clicks fall through to
@@ -204,6 +253,25 @@ function bootstrap(): void {
   initializeAutoUpdater();
 
   initActivationShortcut();
+
+  // External-monitor connect/disconnect (or a resolution change) can change
+  // which display has the notch, or its geometry — re-query and re-anchor.
+  // macOS fires this event multiple times in a burst per change, so debounce.
+  let displayChangeTimer: NodeJS.Timeout | undefined;
+  const handleDisplayChange = () => {
+    if (displayChangeTimer) clearTimeout(displayChangeTimer);
+    displayChangeTimer = setTimeout(() => {
+      displayChangeTimer = undefined;
+      void refreshNotchGeometry().then(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          applyPillBounds(mainWindow, isPillExpanded(getDictationStatus()));
+        }
+      });
+    }, 200);
+  };
+  screen.on("display-metrics-changed", handleDisplayChange);
+  screen.on("display-added", handleDisplayChange);
+  screen.on("display-removed", handleDisplayChange);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

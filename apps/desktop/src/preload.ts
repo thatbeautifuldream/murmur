@@ -54,7 +54,7 @@ const bridge: DesktopBridge = {
   },
   setPillInteractive: (interactive) =>
     ipcRenderer.send(IpcChannels.WINDOW_SET_PILL_INTERACTIVE, interactive),
-  movePillBy: (dx, dy) => ipcRenderer.send(IpcChannels.WINDOW_MOVE_PILL, dx, dy),
+  getNotchMode: () => ipcRenderer.invoke(IpcChannels.WINDOW_GET_NOTCH_MODE),
   isFullScreen: () => ipcRenderer.invoke(IpcChannels.WINDOW_GET_FULLSCREEN),
   onFullScreenChanged: (listener) => {
     const wrapped = (_event: Electron.IpcRendererEvent, isFullScreen: boolean) =>
