@@ -449,14 +449,10 @@
    * below) — used only when the pill is docked against a physical notch
    * (see routes/index.tsx `notchMode`), where it has to match the real
    * hardware bezel's color exactly regardless of the app's light/dark theme,
-   * or the seam between window and notch would be visible. No sheen/gradient
-   * either, for the same reason. No shadow either, in either state — macOS
-   * won't let this window render above the real menu-bar strip (a hard
-   * window-server limit, not a bug — see main.ts), so there's already an
-   * unavoidable sliver of real menu bar between the physical notch and where
-   * this can start; a drop shadow on top of that reads as a separate
-   * floating card lifted off the surface, which is the opposite of what
-   * we want — it should look like it's growing out of the notch. */
+   * or it would clash right where it's closest to the real notch. No
+   * sheen/gradient either, for the same reason. No shadow either — it's a
+   * flat black pill on a window with no other chrome, so a shadow has
+   * nothing but the desktop to read against and just looks smudgy. */
   --pill-bg-notch: #000;
   --pill-shadow-notch: none;
 }

@@ -184,18 +184,15 @@ function DictationRoute() {
     ? { duration: 0 }
     : { duration: expanded ? 0.15 : 0.11, delay: expanded ? 0.1 : 0, ease: "easeOut" as const };
 
-  // Notch mode: square top (flush against the notch's own bottom edge) and
-  // rounded bottom corners only, so the shape reads as an extension of the
-  // notch rather than a floating pill — idle uses a tight radius matching the
-  // real notch's own curvature, expanded a larger one for the bigger
-  // detached-looking tray. `squircle` (see index.css) gives it macOS's
-  // continuous corner curvature instead of a plain circular arc, matching
-  // the real notch/app-icon corner style. Non-notch fallback keeps the
-  // original fully rounded pill in both states.
-  const idleRadiusClass = notchMode ? "squircle rounded-t-none rounded-b-[10px]" : "rounded-full";
-  const expandedRadiusClass = notchMode
-    ? "squircle rounded-t-none rounded-b-[26px]"
-    : "rounded-full";
+  // The window can't actually render flush against the real notch (macOS
+  // reserves the menu-bar strip — see main.ts), so a flat top edge just read
+  // as a cut-off corner rather than a seam with the notch. Fully rounded in
+  // both states instead, same as the non-notch fallback — it's a normal
+  // floating pill, just docked at the top of the screen. `squircle` (see
+  // index.css) gives it macOS's continuous corner curvature instead of a
+  // plain circular arc, matching the real notch/app-icon corner style.
+  const idleRadiusClass = notchMode ? "squircle rounded-full" : "rounded-full";
+  const expandedRadiusClass = notchMode ? "squircle rounded-full" : "rounded-full";
   const currentRadiusClass = expanded ? expandedRadiusClass : idleRadiusClass;
 
   // Idle size: notch mode animates to the notch's exact pixel dimensions
