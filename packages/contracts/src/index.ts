@@ -25,6 +25,16 @@ export const IpcChannels = {
   SETTINGS_SET_ACTIVATION_SHORTCUT: "settings:set-activation-shortcut",
   SETTINGS_GET_MODES: "settings:get-modes",
   SETTINGS_SET_MODES: "settings:set-modes",
+  ON_AGENT_STATUS_CHANGED: "agent:status-changed",
+  ON_AGENT_TEXT_DELTA: "agent:text-delta",
+  ON_AGENT_MESSAGE_COMPLETE: "agent:message-complete",
+  ON_AGENT_TOOL_APPROVAL_REQUEST: "agent:tool-approval-request",
+  AGENT_RESPOND_TOOL_APPROVAL: "agent:respond-tool-approval",
+  AGENT_NEW_CONVERSATION: "agent:new-conversation",
+  AGENT_GET_CONFIG: "agent:get-config",
+  AGENT_SET_CONFIG: "agent:set-config",
+  AGENT_GET_SHORTCUT: "agent:get-shortcut",
+  AGENT_SET_SHORTCUT: "agent:set-shortcut",
 } as const;
 
 /** Port for the localhost HTTP API the desktop app exposes so a plain
@@ -136,6 +146,33 @@ export const DEFAULT_MODES_CONFIG: ModesConfig = {
   overrideModeId: null,
 };
 
+/** `listening` mirrors dictation's mic-capture state; `thinking` covers the
+ *  agent turn (prompt sent, streaming a response, possibly running tools);
+ *  `speaking` is TTS playback of the completed response. Tapping the agent
+ *  shortcut during `thinking`/`speaking` aborts and returns to `idle`. */
+export type AgentStatus = "idle" | "listening" | "thinking" | "speaking" | "error";
+
+/** A pending tool call awaiting user approval before it executes — see the
+ *  `tool_call` approval-gate extension in apps/desktop/src/agent-session.ts. */
+export interface AgentToolApprovalRequest {
+  id: string;
+  toolName: string;
+  input: unknown;
+}
+
+export interface AgentConfig {
+  /** Working directory the coding agent's tools operate in. `null` until the
+   *  user picks one via `pickFolder()`. */
+  cwd: string | null;
+}
+
+export const DEFAULT_AGENT_CONFIG: AgentConfig = { cwd: null };
+
+export const DEFAULT_AGENT_SHORTCUT: ActivationShortcut = {
+  kind: "combo",
+  hotkey: "Alt+Shift+Space",
+};
+
 export interface DesktopBridge {
   readonly platform: Platform;
   getAppVersion(): Promise<string>;
@@ -198,6 +235,26 @@ export interface DesktopBridge {
   getModes(): Promise<ModesConfig>;
   /** Persists the full modes config (modes list, default, and override). */
   setModes(config: ModesConfig): Promise<void>;
+  /** Current agent-mode state, and pushed updates. */
+  onAgentStatusChanged(listener: (status: AgentStatus) => void): () => void;
+  /** Fires repeatedly while the agent streams its response. */
+  onAgentTextDelta(listener: (delta: string) => void): () => void;
+  /** Fires once with the full response text when a turn completes. */
+  onAgentMessageComplete(listener: (text: string) => void): () => void;
+  /** Fires when the agent wants to run a tool that needs approval. */
+  onAgentToolApprovalRequest(listener: (request: AgentToolApprovalRequest) => void): () => void;
+  /** Approves or denies a pending tool call by id. */
+  respondToolApproval(id: string, approved: boolean): Promise<void>;
+  /** Discards the current agent conversation and starts a fresh session. */
+  newAgentConversation(): Promise<void>;
+  getAgentConfig(): Promise<AgentConfig>;
+  setAgentConfig(config: AgentConfig): Promise<void>;
+  /** The gesture that toggles agent-mode listening from any app. */
+  getAgentShortcut(): Promise<ActivationShortcut>;
+  /** Persists and re-registers the agent shortcut. Fails (without changing
+   *  the live shortcut) if it can't be registered — e.g. already claimed by
+   *  another app. */
+  setAgentShortcut(shortcut: ActivationShortcut): Promise<SetActivationShortcutResult>;
 }
 
 declare global {

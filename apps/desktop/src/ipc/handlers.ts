@@ -1,9 +1,23 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
-import { IpcChannels, type ActivationShortcut, type ModesConfig, type Theme } from "@app/contracts";
+import {
+  IpcChannels,
+  type ActivationShortcut,
+  type AgentConfig,
+  type ModesConfig,
+  type Theme,
+} from "@app/contracts";
 import { startDictation, stopDictation } from "../dictation";
-import { changeActivationShortcut } from "../activation-shortcut";
-import { getActivationShortcut, getModes, setModes } from "../settings-store";
+import { changeActivationShortcut, changeAgentShortcut } from "../activation-shortcut";
+import {
+  getActivationShortcut,
+  getAgentConfig,
+  getAgentShortcut,
+  getModes,
+  setAgentConfig,
+  setModes,
+} from "../settings-store";
 import { getCachedNotchGeometry } from "../notch-geometry-manager";
+import { respondToolApproval, resetAgentConversation } from "../agent-session";
 import {
   clearTranscriptHistory,
   deleteTranscriptHistoryEntry,
@@ -82,6 +96,27 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IpcChannels.SETTINGS_GET_MODES, () => getModes());
 
   ipcMain.handle(IpcChannels.SETTINGS_SET_MODES, (_event, config: ModesConfig) => setModes(config));
+
+  ipcMain.handle(IpcChannels.AGENT_RESPOND_TOOL_APPROVAL, (_event, id: string, approved: boolean) => {
+    respondToolApproval(id, approved);
+  });
+
+  ipcMain.handle(IpcChannels.AGENT_NEW_CONVERSATION, () => {
+    resetAgentConversation();
+  });
+
+  ipcMain.handle(IpcChannels.AGENT_GET_CONFIG, () => getAgentConfig());
+
+  ipcMain.handle(IpcChannels.AGENT_SET_CONFIG, (_event, config: AgentConfig) => {
+    setAgentConfig(config);
+    resetAgentConversation();
+  });
+
+  ipcMain.handle(IpcChannels.AGENT_GET_SHORTCUT, () => getAgentShortcut());
+
+  ipcMain.handle(IpcChannels.AGENT_SET_SHORTCUT, (_event, shortcut: ActivationShortcut) =>
+    changeAgentShortcut(shortcut),
+  );
 
   nativeTheme.on("updated", () => {
     const theme: Theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";

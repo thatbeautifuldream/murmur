@@ -4,7 +4,7 @@ import { formatForDisplay, useHotkeyRecorder } from "@tanstack/react-hotkeys";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ComputerIcon, Moon02Icon, Sun01Icon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
-import type { ActivationShortcut } from "@app/contracts";
+import type { ActivationShortcut, AgentConfig } from "@app/contracts";
 import { getDesktopBridge } from "@/desktopBridge";
 import { useSidebarChrome } from "@/hooks/use-sidebar-chrome";
 import { useTheme } from "@/hooks/use-theme";
@@ -80,6 +80,46 @@ function SettingsRoute() {
             </ItemActions>
           </Item>
         </ItemGroup>
+        <ItemGroup className="mt-6">
+          <Item variant="outline">
+            <ItemContent>
+              <ItemTitle>Agent shortcut</ItemTitle>
+              <ItemDescription>
+                The keys that start or stop talking to the AI coding agent.
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <AgentShortcutControl />
+            </ItemActions>
+          </Item>
+          <Item variant="outline">
+            <ItemContent>
+              <ItemTitle>Agent working directory</ItemTitle>
+              <ItemDescription>Where the agent's tools read, write, and run commands.</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <AgentWorkingDirectoryControl />
+            </ItemActions>
+          </Item>
+          <Item variant="outline">
+            <ItemContent>
+              <ItemTitle>Conversation</ItemTitle>
+              <ItemDescription>Discard the agent's current conversation and start fresh.</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  void getDesktopBridge()?.newAgentConversation();
+                  toast.success("Started a new agent conversation.");
+                }}
+              >
+                New conversation
+              </Button>
+            </ItemActions>
+          </Item>
+        </ItemGroup>
       </div>
     </main>
   );
@@ -131,6 +171,78 @@ function ActivationShortcutControl() {
           Reset
         </Button>
       )}
+    </div>
+  );
+}
+
+function AgentShortcutControl() {
+  const bridge = getDesktopBridge();
+  const [shortcut, setShortcut] = useState<ActivationShortcut | null>(null);
+
+  useEffect(() => {
+    void bridge?.getAgentShortcut().then(setShortcut);
+  }, [bridge]);
+
+  async function save(next: ActivationShortcut) {
+    const result = await bridge?.setAgentShortcut(next);
+    if (result?.ok) setShortcut(next);
+    else toast.error(result?.error ?? "Couldn't set that shortcut.");
+  }
+
+  const recorder = useHotkeyRecorder({
+    onRecord: (hotkey) => {
+      if (hotkey) void save({ kind: "combo", hotkey });
+    },
+  });
+
+  if (!bridge || !shortcut) {
+    return <span className="text-sm text-muted-foreground">Open Murmur to change this.</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Kbd className="h-6 px-1.5">
+        {recorder.isRecording ? "Press keys…" : shortcutLabel(shortcut)}
+      </Kbd>
+      <Button
+        size="sm"
+        variant={recorder.isRecording ? "secondary" : "outline"}
+        onClick={() => (recorder.isRecording ? recorder.cancelRecording() : recorder.startRecording())}
+      >
+        {recorder.isRecording ? "Cancel" : "Change"}
+      </Button>
+    </div>
+  );
+}
+
+function AgentWorkingDirectoryControl() {
+  const bridge = getDesktopBridge();
+  const [config, setConfig] = useState<AgentConfig | null>(null);
+
+  useEffect(() => {
+    void bridge?.getAgentConfig().then(setConfig);
+  }, [bridge]);
+
+  async function pickDirectory() {
+    const cwd = await bridge?.pickFolder();
+    if (!cwd) return;
+    const next: AgentConfig = { cwd };
+    await bridge?.setAgentConfig(next);
+    setConfig(next);
+  }
+
+  if (!bridge || !config) {
+    return <span className="text-sm text-muted-foreground">Open Murmur to change this.</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="max-w-64 truncate text-sm text-muted-foreground" title={config.cwd ?? ""}>
+        {config.cwd ?? "Not set"}
+      </span>
+      <Button size="sm" variant="outline" onClick={() => void pickDirectory()}>
+        Choose…
+      </Button>
     </div>
   );
 }

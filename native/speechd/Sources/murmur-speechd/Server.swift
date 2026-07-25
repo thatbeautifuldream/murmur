@@ -5,6 +5,7 @@ final class Server {
     private let port: NWEndpoint.Port
     private var listener: NWListener?
     private let engine = SpeechEngine()
+    private let synthesizer = SpeechSynthesizer()
 
     init(port: UInt16 = 8722) {
         self.port = NWEndpoint.Port(rawValue: port)!
@@ -110,6 +111,17 @@ final class Server {
                 "text": result.text,
                 "audioPath": result.audioPath ?? ""
             ])
+        case ("POST", _) where path.hasPrefix("/speak/stop"):
+            synthesizer.stop()
+            respond(connection, status: 200, body: ["status": "stopped"])
+        case ("POST", _) where path.hasPrefix("/speak"):
+            let text = queryParam(path, "text") ?? ""
+            if text.isEmpty {
+                respond(connection, status: 400, body: ["error": "missing text"])
+            } else {
+                synthesizer.speak(text: text, voiceIdentifier: queryParam(path, "voice"))
+                respond(connection, status: 200, body: ["status": "speaking"])
+            }
         default:
             respond(connection, status: 404, body: ["error": "not found"])
         }

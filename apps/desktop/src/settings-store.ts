@@ -3,19 +3,26 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   DEFAULT_ACTIVATION_SHORTCUT,
+  DEFAULT_AGENT_CONFIG,
+  DEFAULT_AGENT_SHORTCUT,
   DEFAULT_MODES_CONFIG,
   type ActivationShortcut,
+  type AgentConfig,
   type ModesConfig,
 } from "@app/contracts";
 
 interface Settings {
   activationShortcut: ActivationShortcut;
   modes: ModesConfig;
+  agentConfig: AgentConfig;
+  agentShortcut: ActivationShortcut;
 }
 
 const DEFAULTS: Settings = {
   activationShortcut: DEFAULT_ACTIVATION_SHORTCUT,
   modes: DEFAULT_MODES_CONFIG,
+  agentConfig: DEFAULT_AGENT_CONFIG,
+  agentShortcut: DEFAULT_AGENT_SHORTCUT,
 };
 
 let cache: Settings | undefined;
@@ -46,6 +53,22 @@ export function getActivationShortcut(): ActivationShortcut {
 
 export function setActivationShortcut(shortcut: ActivationShortcut): void {
   save({ ...load(), activationShortcut: shortcut });
+}
+
+export function getAgentConfig(): AgentConfig {
+  return load().agentConfig;
+}
+
+export function setAgentConfig(config: AgentConfig): void {
+  save({ ...load(), agentConfig: config });
+}
+
+export function getAgentShortcut(): ActivationShortcut {
+  return load().agentShortcut;
+}
+
+export function setAgentShortcut(shortcut: ActivationShortcut): void {
+  save({ ...load(), agentShortcut: shortcut });
 }
 
 export function getModes(): ModesConfig {

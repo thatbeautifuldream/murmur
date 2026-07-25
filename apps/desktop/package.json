@@ -23,6 +23,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.82.1",
     "electron-updater": "^6.6.2",
     "uiohook-napi": "^1.5.5"
   },

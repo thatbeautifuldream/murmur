@@ -4,6 +4,17 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { DictationStatus } from "@app/contracts";
 import { getDesktopBridge, isDesktop } from "@/desktopBridge";
 import { MicrophoneWaveform } from "@/components/ui/waveform";
+import { useAgent } from "@/hooks/use-agent";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -105,10 +116,14 @@ function useNotchMode(): NotchMode {
  *  transparent overlay window. */
 function DictationRoute() {
   const { status, partialText } = useDictation();
+  const agent = useAgent();
   const { hasNotch: notchMode, width: notchWidth, height: notchHeight } = useNotchMode();
   const listening = status === "listening";
   const processing = status === "processing" || status === "inserting";
-  const expanded = listening || processing;
+  const agentActive = agent.status !== "idle" && agent.status !== "error";
+  const agentListening = agent.status === "listening";
+  const expanded = listening || processing || agentActive;
+  const captionText = agentActive ? agent.text : partialText;
   const reduceMotion = useReducedMotion();
   const captionRef = useRef<HTMLDivElement | null>(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
@@ -117,7 +132,7 @@ function DictationRoute() {
     const caption = captionRef.current;
     if (!caption) return;
     caption.scrollTop = caption.scrollHeight;
-  }, [partialText]);
+  }, [captionText]);
 
   // While idle the window ignores the mouse so clicks fall through to whatever's
   // underneath; `forward: true` still delivers move events, so hit-test them
@@ -153,7 +168,7 @@ function DictationRoute() {
   }, [expanded]);
 
   const toggle = () => {
-    if (processing) return;
+    if (processing || agentActive) return;
     const bridge = getDesktopBridge();
     if (!bridge) return;
     if (listening) {
@@ -299,8 +314,8 @@ function DictationRoute() {
             }
           >
             <MicrophoneWaveform
-              active={listening}
-              processing={processing}
+              active={listening || agentListening}
+              processing={processing || agent.status === "thinking" || agent.status === "speaking"}
               height={22}
               barWidth={2.5}
               barGap={2}
@@ -314,7 +329,7 @@ function DictationRoute() {
         </div>
       </motion.div>
       <AnimatePresence>
-        {partialText && (
+        {captionText && (
           <motion.div
             key="caption"
             ref={captionRef}
@@ -322,7 +337,10 @@ function DictationRoute() {
             animate={{ opacity: 1, filter: "blur(0px)" }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, filter: "blur(2px)" }}
             transition={reduceMotion ? { duration: 0 } : { duration: 0.15, ease: "easeInOut" }}
-            className="max-h-56 max-w-72 overflow-y-auto whitespace-pre-wrap break-words rounded-2xl squircle px-3 py-2 text-center text-xs"
+            className={cn(
+              "max-h-56 max-w-72 overflow-y-auto whitespace-pre-wrap break-words rounded-2xl squircle px-3 py-2 text-center text-xs",
+              agentActive && "ring-1 ring-inset ring-blue-400/60",
+            )}
             style={{
               WebkitAppRegion: "no-drag",
               background: notchMode ? "var(--pill-bg-notch)" : "var(--pill-bg-expanded)",
@@ -330,10 +348,27 @@ function DictationRoute() {
               color: notchMode ? "white" : undefined,
             } as React.CSSProperties}
           >
-            {partialText}
+            {captionText}
           </motion.div>
         )}
       </AnimatePresence>
+      <AlertDialog open={agent.pendingApproval !== null}>
+        <AlertDialogContent style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Allow "{agent.pendingApproval?.toolName}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The agent wants to run this tool. Approve only if you trust the request.
+              <pre className="mt-2 max-h-48 overflow-auto rounded-md bg-muted p-2 text-left text-xs">
+                {JSON.stringify(agent.pendingApproval?.input, null, 2)}
+              </pre>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => agent.respond(false)}>Deny</AlertDialogCancel>
+            <AlertDialogAction onClick={() => agent.respond(true)}>Approve</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
 import {
   IpcChannels,
+  type AgentStatus,
+  type AgentToolApprovalRequest,
   type DesktopBridge,
   type DictationStatus,
   type Platform,
@@ -77,6 +79,34 @@ const bridge: DesktopBridge = {
     ipcRenderer.invoke(IpcChannels.SETTINGS_SET_ACTIVATION_SHORTCUT, shortcut),
   getModes: () => ipcRenderer.invoke(IpcChannels.SETTINGS_GET_MODES),
   setModes: (config) => ipcRenderer.invoke(IpcChannels.SETTINGS_SET_MODES, config),
+  onAgentStatusChanged: (listener) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, status: AgentStatus) => listener(status);
+    ipcRenderer.on(IpcChannels.ON_AGENT_STATUS_CHANGED, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.ON_AGENT_STATUS_CHANGED, wrapped);
+  },
+  onAgentTextDelta: (listener) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, delta: string) => listener(delta);
+    ipcRenderer.on(IpcChannels.ON_AGENT_TEXT_DELTA, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.ON_AGENT_TEXT_DELTA, wrapped);
+  },
+  onAgentMessageComplete: (listener) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, text: string) => listener(text);
+    ipcRenderer.on(IpcChannels.ON_AGENT_MESSAGE_COMPLETE, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.ON_AGENT_MESSAGE_COMPLETE, wrapped);
+  },
+  onAgentToolApprovalRequest: (listener) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, request: AgentToolApprovalRequest) =>
+      listener(request);
+    ipcRenderer.on(IpcChannels.ON_AGENT_TOOL_APPROVAL_REQUEST, wrapped);
+    return () => ipcRenderer.removeListener(IpcChannels.ON_AGENT_TOOL_APPROVAL_REQUEST, wrapped);
+  },
+  respondToolApproval: (id, approved) =>
+    ipcRenderer.invoke(IpcChannels.AGENT_RESPOND_TOOL_APPROVAL, id, approved),
+  newAgentConversation: () => ipcRenderer.invoke(IpcChannels.AGENT_NEW_CONVERSATION),
+  getAgentConfig: () => ipcRenderer.invoke(IpcChannels.AGENT_GET_CONFIG),
+  setAgentConfig: (config) => ipcRenderer.invoke(IpcChannels.AGENT_SET_CONFIG, config),
+  getAgentShortcut: () => ipcRenderer.invoke(IpcChannels.AGENT_GET_SHORTCUT),
+  setAgentShortcut: (shortcut) => ipcRenderer.invoke(IpcChannels.AGENT_SET_SHORTCUT, shortcut),
 };
 
 contextBridge.exposeInMainWorld("desktopBridge", bridge);

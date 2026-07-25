@@ -1,16 +1,23 @@
 import { globalShortcut } from "electron";
 import type { ActivationShortcut, SetActivationShortcutResult } from "@app/contracts";
 import { toggleDictation } from "./dictation";
+import { toggleAgentMode } from "./agent-session";
 import {
   disableOptionTap,
   enableOptionTap,
   hasAccessibilityAccess,
   openAccessibilitySettings,
 } from "./option-key-listener";
-import { getActivationShortcut, setActivationShortcut } from "./settings-store";
+import {
+  getActivationShortcut,
+  getAgentShortcut,
+  setActivationShortcut,
+  setAgentShortcut,
+} from "./settings-store";
 
 let accessibilityPoll: ReturnType<typeof setInterval> | undefined;
 let registeredAccelerator: string | undefined;
+let registeredAgentAccelerator: string | undefined;
 
 // Portable `@tanstack/hotkeys` modifier/key tokens → Electron accelerator tokens.
 const MODIFIER_TOKENS: Record<string, string> = {
@@ -117,4 +124,53 @@ export function changeActivationShortcut(shortcut: ActivationShortcut): SetActiv
 
 export function teardownActivationShortcut(): void {
   teardown();
+}
+
+/** The agent shortcut is a wholly separate trigger from `teardown()` above
+ *  (which only ever manages the one dictation trigger) — v1 only supports
+ *  `combo` accelerators for it, no option-tap variant. */
+function teardownAgentShortcutInternal(): void {
+  if (registeredAgentAccelerator) {
+    globalShortcut.unregister(registeredAgentAccelerator);
+    registeredAgentAccelerator = undefined;
+  }
+}
+
+export function applyAgentShortcut(shortcut: ActivationShortcut): SetActivationShortcutResult {
+  teardownAgentShortcutInternal();
+
+  if (shortcut.kind !== "combo") {
+    return { ok: false, error: "Agent mode only supports a recorded key combo, not Option-tap." };
+  }
+
+  const accelerator = hotkeyToAccelerator(shortcut.hotkey);
+  try {
+    const ok = globalShortcut.register(accelerator, () => void toggleAgentMode());
+    if (!ok) {
+      return { ok: false, error: `“${shortcut.hotkey}” is already in use by another app.` };
+    }
+    registeredAgentAccelerator = accelerator;
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export function initAgentShortcut(): void {
+  applyAgentShortcut(getAgentShortcut());
+}
+
+export function changeAgentShortcut(shortcut: ActivationShortcut): SetActivationShortcutResult {
+  const previous = getAgentShortcut();
+  const result = applyAgentShortcut(shortcut);
+  if (result.ok) {
+    setAgentShortcut(shortcut);
+  } else {
+    applyAgentShortcut(previous);
+  }
+  return result;
+}
+
+export function teardownAgentShortcut(): void {
+  teardownAgentShortcutInternal();
 }

@@ -3,7 +3,13 @@ import * as path from "node:path";
 import { registerIpcHandlers } from "./ipc/handlers";
 import { getDictationStatus, onDictationStatusChanged } from "./dictation";
 import type { DictationStatus } from "@app/contracts";
-import { initActivationShortcut, teardownActivationShortcut } from "./activation-shortcut";
+import {
+  initActivationShortcut,
+  initAgentShortcut,
+  teardownActivationShortcut,
+  teardownAgentShortcut,
+} from "./activation-shortcut";
+import { abortAgentTurn, getAgentStatus, initAgentSessionManager, onAgentStatusChanged } from "./agent-session";
 import { installApplicationMenu } from "./window-chrome";
 import { startSpeechd, stopSpeechd } from "./speechd-manager";
 import { getCachedNotchGeometry, refreshNotchGeometry } from "./notch-geometry-manager";
@@ -63,6 +69,10 @@ const TOP_MARGIN = 8;
 
 function isPillExpanded(status: DictationStatus): boolean {
   return status === "listening" || status === "processing" || status === "inserting";
+}
+
+function isPillExpandedForAnyStatus(): boolean {
+  return isPillExpanded(getDictationStatus()) || getAgentStatus() !== "idle";
 }
 
 // The renderer's collapse sequence (waveform fade, then shape shrink) takes
@@ -257,6 +267,7 @@ function bootstrap(): void {
   }
 
   registerIpcHandlers();
+  initAgentSessionManager();
   startLocalServer();
   installApplicationMenu();
   installTray();
@@ -268,11 +279,16 @@ function bootstrap(): void {
   // Grow the window to the full pill footprint only while dictation is active,
   // and drop it back to the low idle height (so idle clicks fall through to
   // whatever's underneath) once it stops.
-    onDictationStatusChanged((status) => {
+    onDictationStatusChanged(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        schedulePillBounds(mainWindow, isPillExpanded(status));
+        schedulePillBounds(mainWindow, isPillExpandedForAnyStatus());
       }
       installApplicationMenu();
+    });
+    onAgentStatusChanged(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        schedulePillBounds(mainWindow, isPillExpandedForAnyStatus());
+      }
     });
   // Await the spawn so the port-reclaim pre-flight finishes before the
   // activation shortcut is armed: otherwise dictation triggered in the first
@@ -282,6 +298,7 @@ function bootstrap(): void {
   initializeAutoUpdater();
 
   initActivationShortcut();
+  initAgentShortcut();
   // External-monitor connect/disconnect (or a resolution change) can change
   // which display has the notch, or its geometry — re-query and re-anchor.
   // macOS fires this event multiple times in a burst per change, so debounce.
@@ -292,7 +309,7 @@ function bootstrap(): void {
       displayChangeTimer = undefined;
       void refreshNotchGeometry().then(() => {
         if (mainWindow && !mainWindow.isDestroyed()) {
-          applyPillBounds(mainWindow, isPillExpanded(getDictationStatus()));
+          applyPillBounds(mainWindow, isPillExpandedForAnyStatus());
         }
       });
     }, 200);
@@ -311,6 +328,8 @@ function bootstrap(): void {
 
 app.on("will-quit", () => {
   teardownActivationShortcut();
+  teardownAgentShortcut();
+  void abortAgentTurn();
   uninstallTray();
   stopSpeechd();
   stopLocalServer();
