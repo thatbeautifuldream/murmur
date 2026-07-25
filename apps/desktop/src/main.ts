@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, session, systemPreferences } from "electron";
+import { app, BrowserWindow, dialog, screen, session, systemPreferences } from "electron";
 import * as path from "node:path";
 import { registerIpcHandlers } from "./ipc/handlers";
 import { onDictationStatusChanged } from "./dictation";
@@ -11,6 +11,24 @@ import { closeTranscriptHistoryStore } from "./transcript-history";
 import { resolveRendererUrl } from "./app-window";
 import { startLocalServer, stopLocalServer } from "./local-server";
 import { initializeAutoUpdater } from "./updater";
+
+// Electron derives app.getName() (menu bar name, About panel, userData path)
+// from package.json's "name" field, which is "@app/desktop" for this
+// workspace package — override it before anything reads the default.
+app.setName("Murmur");
+
+// Without this, an unhandled error anywhere (e.g. a corrupt settings/history
+// file) silently kills the whole background app — invisible to a user whose
+// only surface is the menu bar, with no clue why dictation just vanished.
+function reportFatalError(error: unknown): void {
+  console.error(error);
+  dialog.showErrorBox(
+    "Murmur crashed",
+    error instanceof Error ? error.message : String(error),
+  );
+}
+process.on("uncaughtException", reportFatalError);
+process.on("unhandledRejection", reportFatalError);
 
 // Footprint sized for the expanded (listening) pill, with the pill itself
 // bottom-anchored inside it via flex. The extra margin beyond the pill's own

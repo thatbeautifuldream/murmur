@@ -44,8 +44,7 @@ export function startSpeechd(): void {
   child = spawn(binaryPath, [], { stdio: "pipe" });
   child.stdout?.on("data", (chunk: Buffer) => process.stdout.write(`[speechd] ${chunk}`));
   child.stderr?.on("data", (chunk: Buffer) => process.stderr.write(`[speechd] ${chunk}`));
-  child.on("exit", (code) => {
-    console.log(`murmur-speechd exited (code ${code})`);
+  child.on("exit", () => {
     child = undefined;
   });
 }

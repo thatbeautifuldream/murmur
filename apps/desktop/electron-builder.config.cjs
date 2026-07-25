@@ -41,6 +41,10 @@ module.exports = {
     // these keys the packaged build crashes on launch. Input Monitoring is for
     // the global Option-key hook (uiohook-napi).
     extendInfo: {
+      // The pill is a pure menu-bar accessory (app.dock?.hide() in main.ts) —
+      // without this, macOS still shows a Dock icon for a frame before that
+      // call runs, flashing on every launch.
+      LSUIElement: true,
       NSMicrophoneUsageDescription:
         "Murmur uses the microphone to transcribe your dictation.",
       NSInputMonitoringUsageDescription:

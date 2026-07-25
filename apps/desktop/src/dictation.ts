@@ -5,6 +5,7 @@ import { mkdirSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import {
   IpcChannels,
+  SPEECHD_URL,
   type DictationMode,
   type DictationStatus,
   type DictationStopResult,
@@ -13,8 +14,6 @@ import {
 import { resolveMode } from "./settings-store";
 import { saveTranscriptHistory } from "./transcript-history";
 import { playDictationStartSound, playDictationStopSound } from "./system-sounds";
-
-const SPEECHD_URL = "http://127.0.0.1:8722";
 
 let status: DictationStatus = "idle";
 let activeLocale = "en-US";

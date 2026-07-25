@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from "electron";
+import { app, BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from "electron";
 import { IpcChannels } from "@app/contracts";
 import { getDictationStatus, toggleDictation } from "./dictation";
 import { openAppWindow } from "./app-window";
@@ -14,6 +14,11 @@ function sendMenuCommand(channel: string): void {
  *  place Cmd+Q, Cmd+H, copy/paste, etc. come from. */
 export function installApplicationMenu(): void {
   const isMac = process.platform === "darwin";
+  app.setAboutPanelOptions({
+    applicationName: "Murmur",
+    applicationVersion: app.getVersion(),
+    copyright: "Milind Mishra",
+  });
   const dictationLabel = () =>
     getDictationStatus() === "listening" ? "Stop Dictation" : "Start Dictation";
 
