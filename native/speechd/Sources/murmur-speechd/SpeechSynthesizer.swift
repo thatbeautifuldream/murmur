@@ -1,6 +1,10 @@
 import AVFoundation
 
-final class SpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate {
+// `@unchecked Sendable`: `AVSpeechSynthesizer` itself isn't Sendable, but
+// instances of this class are only ever reached from `Server`'s main-queue
+// listener (see `listener?.start(queue: .main)` in Server.swift), so there's
+// no cross-actor access in practice.
+final class SpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
     private let synthesizer = AVSpeechSynthesizer()
     private lazy var preferredVoice: AVSpeechSynthesisVoice? = Self.pickPreferredVoice()
 
