@@ -1,7 +1,5 @@
 import { app } from "electron";
-import { LOCAL_HTTP_PORT } from "@app/contracts";
-
-const SPEECHD_URL = "http://127.0.0.1:8722";
+import { LOCAL_HTTP_PORT, SPEECHD_URL } from "@app/contracts";
 
 /** OpenAPI 3 spec for both localhost HTTP surfaces: the Electron local server
  *  (transcript history, this port) and the Swift murmur-speechd daemon. Served

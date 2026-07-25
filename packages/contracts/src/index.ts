@@ -32,6 +32,10 @@ export const IpcChannels = {
  *  transcript history — see apps/desktop/src/local-server.ts. */
 export const LOCAL_HTTP_PORT = 47850;
 
+/** Base URL for the murmur-speechd sidecar process — see
+ *  apps/desktop/src/dictation.ts and apps/desktop/src/openapi.ts. */
+export const SPEECHD_URL = "http://127.0.0.1:8722";
+
 export type Theme = "light" | "dark" | "system";
 export type Platform = "darwin" | "win32" | "linux";
 
