@@ -35,6 +35,32 @@ function isPillExpanded(status: DictationStatus): boolean {
   return status === "listening" || status === "processing" || status === "inserting";
 }
 
+// The renderer's collapse sequence (waveform fade, then shape shrink) takes
+// ~290ms (see shapeTransition/contentTransition in routes/index.tsx). Shrinking
+// the native window's bounds is instant, so if it fired the moment status left
+// an expanded state, the window would snap down to the idle height *before*
+// the still-expanded pill had visually shrunk to fit — clipping its top edge
+// against the new, smaller window for the rest of the transition. Expanding
+// has no such race (the window only ever needs to grow ahead of content that's
+// also growing), so only the shrink is deferred.
+const COLLAPSE_ANIMATION_MS = 320;
+let shrinkTimer: NodeJS.Timeout | undefined;
+
+function schedulePillBounds(window: BrowserWindow, expanded: boolean): void {
+  if (shrinkTimer) {
+    clearTimeout(shrinkTimer);
+    shrinkTimer = undefined;
+  }
+  if (expanded) {
+    applyPillBounds(window, true);
+    return;
+  }
+  shrinkTimer = setTimeout(() => {
+    shrinkTimer = undefined;
+    if (!window.isDestroyed()) applyPillBounds(window, false);
+  }, COLLAPSE_ANIMATION_MS);
+}
+
 // Where the pill is anchored: its left edge and its bottom edge. Defaults to
 // bottom-center, but a drag overwrites it (see the "move" handler) so the
 // resize below never yanks a repositioned pill back to the middle.
@@ -170,7 +196,7 @@ function bootstrap(): void {
   // whatever's underneath) once it stops.
     onDictationStatusChanged((status) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        applyPillBounds(mainWindow, isPillExpanded(status));
+        schedulePillBounds(mainWindow, isPillExpanded(status));
       }
       installApplicationMenu();
     });
