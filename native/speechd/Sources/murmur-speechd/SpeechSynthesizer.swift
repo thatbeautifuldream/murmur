@@ -2,6 +2,27 @@ import AVFoundation
 
 final class SpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
+    private lazy var preferredVoice: AVSpeechSynthesisVoice? = Self.pickPreferredVoice()
+
+    /// Best on-device English voice, ranked: Alex (en-US premium, gold
+    /// standard) > highest-quality installed en-US voice (premium > enhanced
+    /// > default) > any English voice.
+    private static func pickPreferredVoice() -> AVSpeechSynthesisVoice? {
+        let voices = AVSpeechSynthesisVoice.speechVoices()
+
+        if let alex = voices.first(where: { $0.identifier == AVSpeechSynthesisVoiceIdentifierAlex }) {
+            return alex
+        }
+
+        let byQuality: (AVSpeechSynthesisVoice, AVSpeechSynthesisVoice) -> Bool = { lhs, rhs in
+            lhs.quality.rawValue < rhs.quality.rawValue
+        }
+        if let best = voices.filter({ $0.language == "en-US" }).max(by: byQuality) {
+            return best
+        }
+
+        return voices.first(where: { $0.language.hasPrefix("en") })
+    }
 
     override init() {
         super.init()
@@ -13,6 +34,8 @@ final class SpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate {
         let utterance = AVSpeechUtterance(string: text)
         if let voiceIdentifier, let voice = AVSpeechSynthesisVoice(identifier: voiceIdentifier) {
             utterance.voice = voice
+        } else {
+            utterance.voice = preferredVoice
         }
         synthesizer.speak(utterance)
     }
