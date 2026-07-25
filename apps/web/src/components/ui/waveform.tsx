@@ -50,7 +50,7 @@ const Waveform = React.forwardRef<WaveformHandle, WaveformProps>(function Wavefo
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null)
   const dataRef = React.useRef(data)
-  dataRef.current = data
+  const resolvedColorRef = React.useRef("")
 
   const draw = React.useCallback(() => {
     const canvas = canvasRef.current
@@ -66,7 +66,7 @@ const Waveform = React.forwardRef<WaveformHandle, WaveformProps>(function Wavefo
     const maxBarHeight = h * 0.92
 
     ctx.clearRect(0, 0, w, h)
-    const color = barColor ?? getComputedStyle(canvas).color
+    const color = barColor ?? resolvedColorRef.current
 
     for (let i = 0; i < values.length; i++) {
       const amp = Math.max(0, Math.min(1, values[i] ?? 0))
@@ -120,6 +120,9 @@ const Waveform = React.forwardRef<WaveformHandle, WaveformProps>(function Wavefo
       const rect = container.getBoundingClientRect()
       canvas.width = Math.max(1, Math.round(rect.width * dpr))
       canvas.height = Math.max(1, Math.round(rect.height * dpr))
+      // Resolve the fallback color here rather than on every draw() — a
+      // resize only happens on mount/layout changes, not per animation frame.
+      if (!barColor) resolvedColorRef.current = getComputedStyle(canvas).color
       draw()
     }
 
@@ -127,9 +130,13 @@ const Waveform = React.forwardRef<WaveformHandle, WaveformProps>(function Wavefo
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     return () => observer.disconnect()
-  }, [draw])
+  }, [draw, barColor])
 
+  // Only sync the prop into the ref (and redraw) when `data` itself actually
+  // changes — not on every render — so an unrelated parent re-render can't
+  // clobber the latest value written by the imperative `draw()` handle above.
   React.useEffect(() => {
+    dataRef.current = data
     draw()
   }, [data, draw])
 
@@ -268,6 +275,7 @@ function MicrophoneWaveform({
         const audioCtx = audioCtxRef.current
         if (!audioCtx || cancelled) return
         if (audioCtx.state === "suspended") await audioCtx.resume()
+        if (cancelled) return
 
         const source = audioCtx.createMediaStreamSource(stream)
         const analyser = audioCtx.createAnalyser()
@@ -280,6 +288,7 @@ function MicrophoneWaveform({
         const timeData = new Uint8Array(analyser.fftSize)
         let primed = false
         const tick = (now: number) => {
+          if (cancelled) return
           rafRef.current = requestAnimationFrame(tick)
           if (now - lastUpdateRef.current < updateRate) return
           lastUpdateRef.current = now
