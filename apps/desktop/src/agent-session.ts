@@ -29,6 +29,7 @@ let status: AgentStatus = "idle";
 let session: AgentSession | undefined;
 let modelRuntime: ModelRuntime | undefined;
 const statusListeners = new Set<(status: AgentStatus) => void>();
+const approvalListeners = new Set<(pending: boolean) => void>();
 const pendingApprovals = new Map<string, (approved: boolean) => void>();
 let responseBuffer = "";
 
@@ -38,6 +39,13 @@ function setStatus(next: AgentStatus): void {
     window.webContents.send(IpcChannels.ON_AGENT_STATUS_CHANGED, status);
   }
   for (const listener of statusListeners) listener(status);
+}
+
+/** Pushes approval-pending transitions to subscribers — the main process uses
+ *  this to grow the pill window tall enough to fit the inline approval card
+ *  (the default expanded footprint is too short for it). */
+function setApprovalPending(pending: boolean): void {
+  for (const listener of approvalListeners) listener(pending);
 }
 
 function broadcastTextDelta(delta: string): void {
@@ -67,6 +75,11 @@ export function onAgentStatusChanged(listener: (status: AgentStatus) => void): (
   return () => statusListeners.delete(listener);
 }
 
+export function onAgentApprovalPendingChanged(listener: (pending: boolean) => void): () => void {
+  approvalListeners.add(listener);
+  return () => approvalListeners.delete(listener);
+}
+
 /** Gates every tool call behind an explicit user approve/deny, round-tripped
  *  over IPC to the renderer — voice-triggered bash/edit/write must never run
  *  unattended. Registered via `extensionFactories` since `createAgentSession`
@@ -74,8 +87,10 @@ export function onAgentStatusChanged(listener: (status: AgentStatus) => void): (
 const approvalGateExtension: ExtensionFactory = (pi) => {
   pi.on("tool_call", async (event): Promise<ToolCallEventResult | void> => {
     const id = randomUUID();
+    const wasEmpty = pendingApprovals.size === 0;
     const approved = await new Promise<boolean>((resolve) => {
       pendingApprovals.set(id, resolve);
+      if (wasEmpty) setApprovalPending(true);
       broadcastToolApprovalRequest({ id, toolName: event.toolName, input: event.input });
     });
     if (!approved) {
@@ -88,6 +103,7 @@ export function respondToolApproval(id: string, approved: boolean): void {
   const resolve = pendingApprovals.get(id);
   if (!resolve) return;
   pendingApprovals.delete(id);
+  if (pendingApprovals.size === 0) setApprovalPending(false);
   resolve(approved);
 }
 
@@ -184,6 +200,10 @@ export function resetAgentConversation(): void {
   session?.dispose();
   session = undefined;
   responseBuffer = "";
+  if (pendingApprovals.size > 0) {
+    pendingApprovals.clear();
+    setApprovalPending(false);
+  }
 }
 
 /** Recording orchestration for agent mode — talks to speechd's /start and

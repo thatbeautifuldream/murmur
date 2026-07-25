@@ -5,16 +5,7 @@ import type { DictationStatus } from "@app/contracts";
 import { getDesktopBridge, isDesktop } from "@/desktopBridge";
 import { MicrophoneWaveform } from "@/components/ui/waveform";
 import { useAgent } from "@/hooks/use-agent";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -352,23 +343,49 @@ function DictationRoute() {
           </motion.div>
         )}
       </AnimatePresence>
-      <AlertDialog open={agent.pendingApproval !== null}>
-        <AlertDialogContent style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Allow "{agent.pendingApproval?.toolName}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The agent wants to run this tool. Approve only if you trust the request.
-              <pre className="mt-2 max-h-48 overflow-auto rounded-md bg-muted p-2 text-left text-xs">
-                {JSON.stringify(agent.pendingApproval?.input, null, 2)}
-              </pre>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => agent.respond(false)}>Deny</AlertDialogCancel>
-            <AlertDialogAction onClick={() => agent.respond(true)}>Approve</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <AnimatePresence>
+        {agent.pendingApproval && (
+          <motion.div
+            key="approval"
+            initial={reduceMotion ? false : { opacity: 0, y: -8, filter: "blur(2px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, filter: "blur(2px)" }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: "easeOut" }}
+            className="w-72 rounded-2xl squircle p-3"
+            style={
+              {
+                WebkitAppRegion: "no-drag",
+                background: notchMode ? "var(--pill-bg-notch)" : "var(--pill-bg-expanded)",
+                boxShadow: notchMode ? "var(--pill-shadow-notch)" : "var(--pill-shadow-expanded)",
+                color: notchMode ? "white" : undefined,
+              } as React.CSSProperties
+            }
+          >
+            <div className="flex items-baseline justify-between gap-2 px-1">
+              <span className="text-[10px] uppercase tracking-wide opacity-60">Tool approval</span>
+              <code className="truncate font-mono text-xs font-medium">
+                {agent.pendingApproval.toolName}
+              </code>
+            </div>
+            <pre
+              className={cn(
+                "mt-2 max-h-40 overflow-auto rounded-md p-2 text-left font-mono text-[10px] leading-snug",
+                notchMode ? "bg-white/10" : "bg-black/10 dark:bg-white/10",
+              )}
+            >
+              {JSON.stringify(agent.pendingApproval.input, null, 2)}
+            </pre>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => agent.respond(false)}>
+                Deny
+              </Button>
+              <Button size="sm" onClick={() => agent.respond(true)}>
+                Approve
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

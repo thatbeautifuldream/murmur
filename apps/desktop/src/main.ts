@@ -9,7 +9,7 @@ import {
   teardownActivationShortcut,
   teardownAgentShortcut,
 } from "./activation-shortcut";
-import { abortAgentTurn, getAgentStatus, initAgentSessionManager, onAgentStatusChanged } from "./agent-session";
+import { abortAgentTurn, getAgentStatus, initAgentSessionManager, onAgentApprovalPendingChanged, onAgentStatusChanged } from "./agent-session";
 import { installApplicationMenu } from "./window-chrome";
 import { startSpeechd, stopSpeechd } from "./speechd-manager";
 import { getCachedNotchGeometry, refreshNotchGeometry } from "./notch-geometry-manager";
@@ -64,6 +64,11 @@ process.on("unhandledRejection", reportFatalError);
 // active — the top edge stays pinned so the pill only ever grows downward.
 const PILL_WIDTH = 360;
 const PILL_AREA_HEIGHT = 340;
+// Extra downward growth when a tool-approval card is stacked under the pill —
+// the default PILL_AREA_HEIGHT only leaves room for the caption, and the
+// approval card (title + JSON preview + actions) needs ~this much more or it
+// would be clipped by the transparent window's own bounds.
+const PILL_APPROVAL_EXTRA_HEIGHT = 260;
 const PILL_IDLE_HEIGHT = 64;
 const TOP_MARGIN = 8;
 
@@ -74,6 +79,11 @@ function isPillExpanded(status: DictationStatus): boolean {
 function isPillExpandedForAnyStatus(): boolean {
   return isPillExpanded(getDictationStatus()) || getAgentStatus() !== "idle";
 }
+
+// Whether the inline tool-approval card is currently mounted in the renderer —
+// drives the extra window height below. Toggled by the agent-session approval
+// listeners (tool_call requested / responded / conversation reset).
+let approvalPending = false;
 
 // The renderer's collapse sequence (waveform fade, then shape shrink) takes
 // ~290ms (see shapeTransition/contentTransition in routes/index.tsx). Shrinking
@@ -91,13 +101,22 @@ function schedulePillBounds(window: BrowserWindow, expanded: boolean): void {
     clearTimeout(shrinkTimer);
     shrinkTimer = undefined;
   }
-  if (expanded) {
-    applyPillBounds(window, true);
+  // Growth applies immediately so the window leads the renderer's enter
+  // animation; any shrink (whether to idle or just dropping the approval
+  // card) is deferred so the exiting content can animate out before its
+  // container clips it.
+  const currentHeight = window.isDestroyed() ? Number.POSITIVE_INFINITY : window.getBounds().height;
+  const geometry = getCachedNotchGeometry();
+  const notch = geometry?.hasNotch ? geometry : undefined;
+  const baseHeight = expanded ? PILL_AREA_HEIGHT : (notch?.notchHeight ?? PILL_IDLE_HEIGHT);
+  const targetHeight = expanded && approvalPending ? baseHeight + PILL_APPROVAL_EXTRA_HEIGHT : baseHeight;
+  if (targetHeight >= currentHeight) {
+    applyPillBounds(window, expanded);
     return;
   }
   shrinkTimer = setTimeout(() => {
     shrinkTimer = undefined;
-    if (!window.isDestroyed()) applyPillBounds(window, false);
+    if (!window.isDestroyed()) applyPillBounds(window, expanded);
   }, COLLAPSE_ANIMATION_MS);
 }
 
@@ -152,7 +171,8 @@ function applyPillBounds(window: BrowserWindow, expanded: boolean): void {
   const geometry = getCachedNotchGeometry();
   const notch = geometry?.hasNotch ? geometry : undefined;
   const width = expanded ? PILL_WIDTH : (notch?.notchWidth ?? PILL_WIDTH);
-  const height = expanded ? PILL_AREA_HEIGHT : (notch?.notchHeight ?? PILL_IDLE_HEIGHT);
+  const baseHeight = expanded ? PILL_AREA_HEIGHT : (notch?.notchHeight ?? PILL_IDLE_HEIGHT);
+  const height = expanded && approvalPending ? baseHeight + PILL_APPROVAL_EXTRA_HEIGHT : baseHeight;
   window.setBounds({
     x: Math.round(anchor.centerX - width / 2),
     y: Math.round(anchor.top),
@@ -286,6 +306,12 @@ function bootstrap(): void {
       installApplicationMenu();
     });
     onAgentStatusChanged(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        schedulePillBounds(mainWindow, isPillExpandedForAnyStatus());
+      }
+    });
+    onAgentApprovalPendingChanged((pending) => {
+      approvalPending = pending;
       if (mainWindow && !mainWindow.isDestroyed()) {
         schedulePillBounds(mainWindow, isPillExpandedForAnyStatus());
       }
