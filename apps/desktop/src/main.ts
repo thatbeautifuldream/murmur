@@ -12,6 +12,7 @@ import { closeTranscriptHistoryStore } from "./transcript-history";
 import { resolveRendererUrl } from "./app-window";
 import { startLocalServer, stopLocalServer } from "./local-server";
 import { initializeAutoUpdater } from "./updater";
+import { migrateLegacyUserData } from "./userdata-migration";
 
 // Electron derives app.getName() (menu bar name, About panel, userData path)
 // from package.json's "name" field, which is "@app/desktop" for this
@@ -230,6 +231,12 @@ if (!app.requestSingleInstanceLock()) {
 
 function bootstrap(): void {
   app.whenReady().then(async () => {
+  // Runs before anything below reads userData. Copies the v0.0.1
+  // ~/Library/Application Support/@app/desktop/ DB, settings, and recordings
+  // into the post-rename Murmur/ folder so an upgrade doesn't look like the
+  // user's history and shortcut both vanished.
+  migrateLegacyUserData();
+
   // A pure overlay pill has no reason to hold a dock icon or take focus like
   // a regular app — this also helps it behave as an accessory window macOS
   // is willing to float over full-screen Spaces.
@@ -267,11 +274,14 @@ function bootstrap(): void {
       }
       installApplicationMenu();
     });
-  startSpeechd();
+  // Await the spawn so the port-reclaim pre-flight finishes before the
+  // activation shortcut is armed: otherwise dictation triggered in the first
+  // ~second could land on a stale squatter still holding port 8722. The spawn
+  // itself is the slow part only when a reclaim is needed (port free → no-op).
+  await startSpeechd();
   initializeAutoUpdater();
 
   initActivationShortcut();
-
   // External-monitor connect/disconnect (or a resolution change) can change
   // which display has the notch, or its geometry — re-query and re-anchor.
   // macOS fires this event multiple times in a burst per change, so debounce.

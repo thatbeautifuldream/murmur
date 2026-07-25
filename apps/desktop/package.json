@@ -1,6 +1,6 @@
 {
   "name": "@app/desktop",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Murmur desktop app",
   "author": "Milind Mishra",
   "private": true,

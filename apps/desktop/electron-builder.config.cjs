@@ -60,7 +60,7 @@ module.exports = {
     notarize,
     // Bundles the release build of native/speechd and native/notch-geometry so
     // the packaged app is self-contained — build them first with
-    // "bun run speechd:build:release" and "bun run notch:build:release".
+    // "bun run native:build:release".
     extraResources: [
       {
         from: "../../native/speechd/.build/release/murmur-speechd",

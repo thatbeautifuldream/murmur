@@ -1,6 +1,6 @@
 {
   "name": "murmur",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "packageManager": "bun@1.3.10",
   "workspaces": [
@@ -8,22 +8,20 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --parallel dev:web dev:desktop",
+    "dev": "bun run native:build && bun run --parallel dev:web dev:desktop",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:desktop": "VITE_DEV_SERVER_URL=http://localhost:5173 bun run --cwd apps/desktop dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "start": "bun run --cwd apps/desktop start",
-    "package": "bun run speechd:build:release && bun run notch:build:release && turbo run build && bun run --cwd apps/desktop package",
-    "package:unsigned": "bun run speechd:build:release && bun run notch:build:release && turbo run build && bun run --cwd apps/desktop package:unsigned",
-    "package:signed": "bun run speechd:build:release && bun run notch:build:release && turbo run build && bun run --cwd apps/desktop package:signed",
+    "native:build": "swift build --package-path native/speechd && swift build --package-path native/notch-geometry",
+    "native:build:release": "swift build -c release --package-path native/speechd && swift build -c release --package-path native/notch-geometry",
+    "package": "bun run native:build:release && turbo run build && bun run --cwd apps/desktop package",
+    "package:unsigned": "bun run native:build:release && turbo run build && bun run --cwd apps/desktop package:unsigned",
+    "package:signed": "bun run native:build:release && turbo run build && bun run --cwd apps/desktop package:signed",
     "package:install": "bun run package:signed && bun run --cwd apps/desktop install:mac",
     "release:mac": "bun run --cwd apps/desktop release:mac",
-    "install:mac": "bun run --cwd apps/desktop install:mac",
-    "speechd:build": "swift build --package-path native/speechd",
-    "speechd:build:release": "swift build -c release --package-path native/speechd",
-    "notch:build": "swift build --package-path native/notch-geometry",
-    "notch:build:release": "swift build -c release --package-path native/notch-geometry"
+    "install:mac": "bun run --cwd apps/desktop install:mac"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

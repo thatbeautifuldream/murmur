@@ -17,7 +17,7 @@ export interface NotchGeometry {
 
 /** Packaged: the binary is bundled as an extraResource (see
  *  electron-builder.config.cjs). Dev: built in place at native/notch-geometry
- *  via `bun run notch:build` — MURMUR_NOTCH_GEOMETRY_PATH overrides both for
+ *  via `bun run native:build` — MURMUR_NOTCH_GEOMETRY_PATH overrides both for
  *  testing against a different build. */
 function resolveBinaryPath(): string {
   if (process.env.MURMUR_NOTCH_GEOMETRY_PATH) return process.env.MURMUR_NOTCH_GEOMETRY_PATH;
@@ -52,7 +52,7 @@ export async function refreshNotchGeometry(): Promise<NotchGeometry | undefined>
   const binaryPath = resolveBinaryPath();
   if (!fs.existsSync(binaryPath)) {
     console.error(
-      `murmur-notch-geometry not found at ${binaryPath}. Run "bun run notch:build" and restart.`,
+      `murmur-notch-geometry not found at ${binaryPath}. Run "bun run native:build" and restart.`,
     );
     cached = undefined;
     return cached;

@@ -19,6 +19,7 @@ export MURMUR_NOTARIZE="${MURMUR_NOTARIZE:-1}"
 missing=()
 # electron-builder uploads to GitHub Releases with this token (repo scope).
 [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]] && missing+=("GH_TOKEN")
+command -v gh >/dev/null 2>&1 || missing+=("gh CLI (https://cli.github.com)")
 
 if [[ "${MURMUR_NOTARIZE}" == "1" ]]; then
     [[ -z "${APPLE_ID:-}" ]] && missing+=("APPLE_ID")
@@ -46,8 +47,8 @@ esac
 VERSION="$(node -p "require('${APP_DIR}/package.json').version")"
 
 echo ""
-echo "==> Building native speechd (release)..."
-(cd "${ROOT_DIR}" && bun run speechd:build:release)
+echo "==> Building native binaries (release)..."
+(cd "${ROOT_DIR}" && bun run native:build:release)
 
 echo ""
 echo "==> Building web + desktop bundles..."
@@ -59,6 +60,21 @@ if [[ "${MURMUR_NOTARIZE}" == "1" ]]; then
 else
     echo "==> Packaging (unsigned) and publishing ${VERSION} to GitHub Releases..."
 fi
+
+# electron-builder's --publish always uploads to a DRAFT release then publishes
+# it. If a published release already exists at this tag (e.g. one created
+# manually via `gh release create`), electron-builder refuses with
+# "existing type not compatible with publishing type". Flatten any existing
+# release to a draft first so the upload always succeeds.
+TAG="v${VERSION}"
+if gh release view "${TAG}" >/dev/null 2>&1; then
+    IS_DRAFT="$(gh release view "${TAG}" --json isDraft --jq '.isDraft')"
+    if [[ "${IS_DRAFT}" == "false" ]]; then
+        echo "==> Converting existing ${TAG} release to draft for asset upload..."
+        gh release edit "${TAG}" --draft
+    fi
+fi
+
 cd "${APP_DIR}"
 if [[ "${MURMUR_NOTARIZE}" == "1" ]]; then
     PYTHON=/usr/bin/python3 PYTHON_PATH=/usr/bin/python3 CSC_PARALLEL_LIMIT=2 \
@@ -71,5 +87,5 @@ fi
 echo ""
 echo "==> Release complete!"
 echo "    Version: ${VERSION}"
-echo "    Draft release: https://github.com/thatbeautifuldream/murmur/releases"
-echo "    Publish the draft on GitHub to make the update live for existing installs."
+echo "    Release: https://github.com/thatbeautifuldream/murmur/releases/tag/${TAG}"
+echo "    Published and live for existing installs via latest-mac.yml."

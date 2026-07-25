@@ -22,7 +22,7 @@ native/
 
 ```sh
 bun install
-bun run speechd:build   # builds native/speechd once (debug)
+bun run native:build   # builds native/speechd + notch-geometry once (debug)
 bun run dev
 ```
 
@@ -43,7 +43,7 @@ bun run start   # runs the built Electron app against the built renderer
 bun run package   # builds native/speechd in release mode, then the app + DMG
 ```
 
-`bun run package` builds `native/speechd` in release first (`speechd:build:release`), then the web/desktop bundles, then hands off to electron-builder — the compiled speechd binary is embedded as an extraResource (`apps/desktop/electron-builder.config.cjs`) so the packaged `.app` is self-contained. Output lands in `apps/desktop/release/`.
+`bun run package` builds `native/speechd` + `native/notch-geometry` in release first (`native:build:release`), then the web/desktop bundles, then hands off to electron-builder — the compiled speechd binary is embedded as an extraResource (`apps/desktop/electron-builder.config.cjs`) so the packaged `.app` is self-contained. Output lands in `apps/desktop/release/`.
 
 ## Stack
 

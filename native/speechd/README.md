@@ -17,7 +17,7 @@ swift build
 .build/debug/murmur-speechd
 ```
 
-Normally you don't do this — `bun run dev` / `bun run speechd:build` from the repo root builds it, and Electron spawns it automatically on launch. First run will prompt for Microphone and Speech Recognition permissions (System Settings → Privacy & Security).
+Normally you don't do this — `bun run dev` / `bun run native:build` from the repo root builds it, and Electron spawns it automatically on launch. First run will prompt for Microphone and Speech Recognition permissions (System Settings → Privacy & Security).
 
 ## Roadmap
 

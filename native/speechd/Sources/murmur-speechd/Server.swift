@@ -16,8 +16,27 @@ final class Server {
         listener?.newConnectionHandler = { [weak self] connection in
             self?.accept(connection)
         }
+        // NWListener's init does NOT throw on a port conflict — the failure
+        // arrives asynchronously here as `.failed`. Without this handler the
+        // binary would print "listening", enter RunLoop.main.run(), and live
+        // forever as a zombie that owns no port, leaving the app talking to
+        // whatever stale process squatted on 8722 first. Exit non-zero so the
+        // parent's exit handler (see speechd-manager.ts) actually fires.
+        listener?.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .ready:
+                print("murmur-speechd listening on 127.0.0.1:\(self?.port ?? 8722)")
+            case .failed(let error):
+                FileHandle.standardError.write(
+                    Data("murmur-speechd: listener failed: \(error)\n".utf8))
+                exit(1)
+            case .setup, .waiting, .cancelled:
+                break
+            @unknown default:
+                break
+            }
+        }
         listener?.start(queue: .main)
-        print("murmur-speechd listening on 127.0.0.1:\(port)")
     }
 
     private func accept(_ connection: NWConnection) {
