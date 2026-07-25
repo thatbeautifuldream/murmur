@@ -6,10 +6,15 @@ import { useSidebarHotkey } from "@/hooks/use-sidebar-hotkey";
 import { useUIStore } from "@/stores/ui-store";
 
 /** Murmur runs two kinds of windows off the same renderer bundle: the
- *  frameless, transparent, bottom-anchored dictation pill (see
+ *  frameless, transparent, notch-anchored dictation pill (see
  *  apps/desktop/src/main.ts) at the root route, and a regular windowed app
  *  — sidebar + Settings/History/About — everywhere else (see
- *  apps/desktop/src/app-window.ts). */
+ *  apps/desktop/src/app-window.ts). No padding here: on notched hardware the
+ *  main process sizes this window to the notch's exact pixel dimensions when
+ *  idle, so the pill must be able to fill it edge-to-edge with zero gap.
+ *  Shadow bleed room while expanded instead comes from the window itself
+ *  being sized well beyond the visible pill (see PILL_WIDTH/PILL_AREA_HEIGHT
+ *  in main.ts), not from container padding. */
 export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
@@ -23,7 +28,7 @@ export function AppShell() {
 
   if (pathname === "/") {
     return (
-      <div className="isolate flex h-dvh flex-col items-center justify-end bg-transparent p-6">
+      <div className="isolate flex h-dvh flex-col items-center justify-start bg-transparent">
         <Outlet />
       </div>
     );

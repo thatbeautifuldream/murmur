@@ -48,11 +48,47 @@ function useDictation() {
   return { status, partialText };
 }
 
-/** Murmur's whole app: a flatline that's invisible until you tap Option —
- *  then it expands into a small pill with a live waveform, and collapses
- *  back to a line the moment you tap Option again to stop (which also
- *  pastes the transcript into whatever app is frontmost). No buttons, no
- *  chrome — the hotkey is the only control surface.
+interface NotchMode {
+  hasNotch: boolean;
+  width: number;
+  height: number;
+}
+
+const NO_NOTCH: NotchMode = { hasNotch: false, width: 0, height: 0 };
+
+/** Whether the pill is docked flush against a physical notch, and its exact
+ *  pixel size — the main process already sizes the native window around this
+ *  (see main.ts); the pill needs the real numbers (not just the boolean) so
+ *  its idle shape can animate to an exact pixel target that fills the window
+ *  edge-to-edge with square top/rounded bottom corners, or fall back to the
+ *  original small floating flatline/pill on non-notched hardware. */
+function useNotchMode(): NotchMode {
+  const [mode, setMode] = useState<NotchMode>(NO_NOTCH);
+
+  useEffect(() => {
+    const bridge = getDesktopBridge();
+    if (!bridge) return;
+    let cancelled = false;
+    void bridge.getNotchMode().then((m) => {
+      if (!cancelled) setMode(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return mode;
+}
+
+/** Murmur's whole app: on notched hardware, a shape flush against the
+ *  physical camera notch that's invisible-until-tapped (it fills the exact
+ *  notch footprint main.ts sizes the window to, so it reads as part of the
+ *  notch's own black bezel); on other Macs, a small floating flatline in the
+ *  same spot. Tapping Option expands either into a pill with a live
+ *  waveform hanging below it, and collapses back the moment you tap Option
+ *  again to stop (which also pastes the transcript into whatever app is
+ *  frontmost). No buttons, no chrome — the hotkey is the only control
+ *  surface.
  *
  *  The resize tweens real `width`/`height` via Motion's `animate` (tuned
  *  asymmetric: expand reads as an immediate reaction to the hotkey, collapse
@@ -69,14 +105,13 @@ function useDictation() {
  *  transparent overlay window. */
 function DictationRoute() {
   const { status, partialText } = useDictation();
+  const { hasNotch: notchMode, width: notchWidth, height: notchHeight } = useNotchMode();
   const listening = status === "listening";
   const processing = status === "processing" || status === "inserting";
   const expanded = listening || processing;
   const reduceMotion = useReducedMotion();
   const captionRef = useRef<HTMLDivElement | null>(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ lastX: number; lastY: number; moved: boolean } | null>(null);
-  const suppressClickRef = useRef(false);
 
   useEffect(() => {
     const caption = captionRef.current;
@@ -87,9 +122,9 @@ function DictationRoute() {
   // While idle the window ignores the mouse so clicks fall through to whatever's
   // underneath; `forward: true` still delivers move events, so hit-test them
   // here and capture the mouse only while the cursor is over the pill (padded,
-  // since the idle flatline is a tiny target). Element mouseenter/leave is
-  // unreliable because the pill is a `-webkit-app-region: drag` region, which
-  // swallows DOM mouse events — a document-level move listener is not affected.
+  // since the idle flatline/notch-flush shape is a tiny target). Element
+  // mouseenter/leave doesn't fire reliably at this window edge, so a
+  // document-level move listener is used instead.
   useEffect(() => {
     if (expanded) return;
     const bridge = getDesktopBridge();
@@ -97,10 +132,6 @@ function DictationRoute() {
     const HIT_PADDING = 12;
     let interactive = false;
     const onMove = (event: MouseEvent) => {
-      // Never release mid-drag: a fast drag lets the pointer briefly outrun the
-      // window (which chases it a frame behind), and dropping capture there
-      // would break the drag and flip the cursor back to the arrow.
-      if (dragRef.current) return;
       const pill = pillRef.current;
       if (!pill) return;
       const rect = pill.getBoundingClientRect();
@@ -121,49 +152,7 @@ function DictationRoute() {
     return () => window.removeEventListener("mousemove", onMove);
   }, [expanded]);
 
-  // Dragging the pill is driven here (not a native `-webkit-app-region`, which
-  // would override the cursor and race the click-through capture): stream the
-  // screen-pixel delta to main on each move, and swallow the click that ends a
-  // real drag so it doesn't also toggle dictation.
-  useEffect(() => {
-    const bridge = getDesktopBridge();
-    if (!bridge) return;
-    const DRAG_THRESHOLD = 3;
-    let startX = 0;
-    let startY = 0;
-    const onMove = (event: MouseEvent) => {
-      const drag = dragRef.current;
-      if (!drag) return;
-      bridge.movePillBy(event.screenX - drag.lastX, event.screenY - drag.lastY);
-      drag.lastX = event.screenX;
-      drag.lastY = event.screenY;
-      if (Math.abs(event.screenX - startX) + Math.abs(event.screenY - startY) > DRAG_THRESHOLD) {
-        drag.moved = true;
-      }
-    };
-    const onUp = () => {
-      if (dragRef.current?.moved) suppressClickRef.current = true;
-      dragRef.current = null;
-    };
-    const onDown = (event: MouseEvent) => {
-      startX = event.screenX;
-      startY = event.screenY;
-    };
-    window.addEventListener("mousedown", onDown, true);
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousedown", onDown, true);
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, []);
-
   const toggle = () => {
-    if (suppressClickRef.current) {
-      suppressClickRef.current = false;
-      return;
-    }
     if (processing) return;
     const bridge = getDesktopBridge();
     if (!bridge) return;
@@ -195,28 +184,32 @@ function DictationRoute() {
     ? { duration: 0 }
     : { duration: expanded ? 0.15 : 0.11, delay: expanded ? 0.1 : 0, ease: "easeOut" as const };
 
+  // The window can't actually render flush against the real notch (macOS
+  // reserves the menu-bar strip — see main.ts), so a flat top edge just read
+  // as a cut-off corner rather than a seam with the notch. Fully rounded in
+  // both states instead, same as the non-notch fallback — it's a normal
+  // floating pill, just docked at the top of the screen. `squircle` (see
+  // index.css) gives it macOS's continuous corner curvature instead of a
+  // plain circular arc, matching the real notch/app-icon corner style.
+  const idleRadiusClass = notchMode ? "squircle rounded-full" : "rounded-full";
+  const expandedRadiusClass = notchMode ? "squircle rounded-full" : "rounded-full";
+  const currentRadiusClass = expanded ? expandedRadiusClass : idleRadiusClass;
+
+  // Idle size: notch mode animates to the notch's exact pixel dimensions
+  // (from the native helper via getNotchMode, not a "100%" CSS size — the
+  // native window's own shrink is deliberately deferred past the collapse
+  // animation, see COLLAPSE_ANIMATION_MS in main.ts, so a percentage target
+  // would resolve against the still-large window and visibly stretch instead
+  // of shrinking). Non-notch mode keeps the original small flatline.
+  const idleWidth = notchMode ? notchWidth : 56;
+  const idleHeight = notchMode ? notchHeight : 4;
+
   return (
+    // Pill first, caption after: the window is top-anchored (pinned flush
+    // against the notch, growing downward — see main.ts), so extra content
+    // has to stack *below* the pill, not above it, or it would render off
+    // the top of the window / into the notch itself.
     <div className="flex flex-col items-center gap-2">
-      <AnimatePresence>
-        {partialText && (
-          <motion.div
-            key="caption"
-            ref={captionRef}
-            initial={reduceMotion ? false : { opacity: 0, filter: "blur(2px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, filter: "blur(2px)" }}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.15, ease: "easeInOut" }}
-            className="max-h-56 max-w-72 overflow-y-auto whitespace-pre-wrap break-words rounded-2xl squircle px-3 py-2 text-center text-xs"
-            style={{
-              WebkitAppRegion: "no-drag",
-              background: "var(--pill-bg-expanded)",
-              boxShadow: "var(--pill-shadow-expanded)",
-            } as React.CSSProperties}
-          >
-            {partialText}
-          </motion.div>
-        )}
-      </AnimatePresence>
       <motion.div
         role="button"
         tabIndex={0}
@@ -227,10 +220,6 @@ function DictationRoute() {
         aria-busy={processing}
         onClick={toggle}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggle()}
-        onMouseDown={(e) => {
-          if (e.button !== 0 || processing) return;
-          dragRef.current = { lastX: e.screenX, lastY: e.screenY, moved: false };
-        }}
         ref={pillRef}
         // Deliberately animate real `width`/`height` (not Motion's `layout`
         // prop): `layout` drives size changes with a transform-scale FLIP,
@@ -239,49 +228,75 @@ function DictationRoute() {
         // (4px tall -> 44px tall). Animating the box directly reflows instead,
         // so the child is never scaled or repositioned — it just fades.
         initial={false}
-        animate={{ width: expanded ? 240 : 56, height: expanded ? 44 : 4 }}
+        animate={{ width: expanded ? 240 : idleWidth, height: expanded ? 44 : idleHeight }}
         transition={shapeTransition}
         className={cn(
-          "relative rounded-full",
-          processing
-            ? "cursor-default"
-            : expanded
-              ? "cursor-pointer"
-              : "cursor-grab active:cursor-grabbing",
+          "relative",
+          currentRadiusClass,
+          processing ? "cursor-default" : "cursor-pointer",
         )}
       >
-        {/* Crossfade the two surfaces (idle flatline vs. expanded pill, with
-            its drop shadow) with `opacity` instead of transitioning
-            `background`/`box-shadow` — an animated `box-shadow` repaints the
-            shadow bitmap every frame, whereas opacity stays on the compositor.
-            These carry the shadow, so the pill itself must NOT clip (an
-            ancestor `overflow-hidden` would swallow the shadow); the waveform
-            is clipped by its own wrapper below instead. */}
+        {/* Crossfade the two surfaces (idle flatline/notch-flush shape vs.
+            expanded pill, with its drop shadow) with `opacity` instead of
+            transitioning `background`/`box-shadow` — an animated `box-shadow`
+            repaints the shadow bitmap every frame, whereas opacity stays on
+            the compositor. These carry the shadow, so the pill itself must
+            NOT clip (an ancestor `overflow-hidden` would swallow the
+            shadow); the waveform is clipped by its own wrapper below
+            instead. */}
         <motion.div
-          className="absolute inset-0 rounded-full"
+          className={cn("absolute inset-0", idleRadiusClass)}
           initial={false}
           animate={{ opacity: expanded ? 0 : 1 }}
           transition={shapeTransition}
-          style={{ background: "color-mix(in srgb, var(--foreground) 20%, transparent)" }}
+          style={{
+            // In notch mode this paints nothing at all: macOS reserves the
+            // menu-bar strip at the window-server level, so this window can't
+            // actually render flush against the real notch (see main.ts) —
+            // it ends up a few points below it. A solid idle fill there would
+            // show as a visibly detached black bar hanging under the notch
+            // instead of reading as part of it. Leaving it transparent means
+            // there's nothing to see while idle; the hover/click hit-test
+            // area is still exactly there, it just has no visible shape until
+            // dictation starts and the (visible) expanded layer takes over.
+            background: notchMode
+              ? "transparent"
+              : "color-mix(in srgb, var(--foreground) 20%, transparent)",
+          }}
         />
         <motion.div
-          className="absolute inset-0 rounded-full"
+          className={cn("absolute inset-0", expandedRadiusClass)}
           initial={false}
           animate={{ opacity: expanded ? 1 : 0 }}
           transition={shapeTransition}
           style={
             {
-              background: "var(--pill-bg-expanded)",
-              boxShadow: "var(--pill-shadow-expanded)",
+              background: notchMode ? "var(--pill-bg-notch)" : "var(--pill-bg-expanded)",
+              boxShadow: notchMode ? "var(--pill-shadow-notch)" : "var(--pill-shadow-expanded)",
             } as React.CSSProperties
           }
         />
-        <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-full">
+        <div
+          className={cn(
+            "absolute inset-0 flex items-center justify-center overflow-hidden",
+            currentRadiusClass,
+          )}
+        >
           <motion.div
             className="w-full px-4"
             animate={{ opacity: expanded ? 1 : 0 }}
             transition={contentTransition}
-            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+            style={
+              {
+                WebkitAppRegion: "no-drag",
+                // The notch's pure-black background doesn't track the app's
+                // light/dark theme (it always matches the hardware bezel), so
+                // the waveform's inherited `currentColor` — which it reads via
+                // getComputedStyle — needs to be forced light here too,
+                // regardless of theme.
+                color: notchMode ? "white" : undefined,
+              } as React.CSSProperties
+            }
           >
             <MicrophoneWaveform
               active={listening}
@@ -298,6 +313,27 @@ function DictationRoute() {
           </motion.div>
         </div>
       </motion.div>
+      <AnimatePresence>
+        {partialText && (
+          <motion.div
+            key="caption"
+            ref={captionRef}
+            initial={reduceMotion ? false : { opacity: 0, filter: "blur(2px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, filter: "blur(2px)" }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.15, ease: "easeInOut" }}
+            className="max-h-56 max-w-72 overflow-y-auto whitespace-pre-wrap break-words rounded-2xl squircle px-3 py-2 text-center text-xs"
+            style={{
+              WebkitAppRegion: "no-drag",
+              background: notchMode ? "var(--pill-bg-notch)" : "var(--pill-bg-expanded)",
+              boxShadow: notchMode ? "var(--pill-shadow-notch)" : "var(--pill-shadow-expanded)",
+              color: notchMode ? "white" : undefined,
+            } as React.CSSProperties}
+          >
+            {partialText}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

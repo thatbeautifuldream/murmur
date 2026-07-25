@@ -17,7 +17,7 @@ export const IpcChannels = {
   WINDOW_GET_FULLSCREEN: "window:get-fullscreen",
   ON_WINDOW_FULLSCREEN_CHANGED: "window:fullscreen-changed",
   WINDOW_SET_PILL_INTERACTIVE: "window:set-pill-interactive",
-  WINDOW_MOVE_PILL: "window:move-pill",
+  WINDOW_GET_NOTCH_MODE: "window:get-notch-mode",
   TRANSCRIPT_HISTORY_RESTORE: "transcript-history:restore",
   MENU_TOGGLE_SIDEBAR: "menu:toggle-sidebar",
   MENU_SHOW_KEYBOARD_SHORTCUTS: "menu:show-keyboard-shortcuts",
@@ -170,12 +170,17 @@ export interface DesktopBridge {
   onFullScreenChanged(listener: (isFullScreen: boolean) => void): () => void;
   /** While idle the pill window ignores the mouse so clicks fall through to
    *  whatever's underneath. The pill flips this on while the cursor is over it
-   *  so it stays clickable and draggable. Only honored in the idle state. */
+   *  so it stays clickable. Only honored in the idle state. */
   setPillInteractive(interactive: boolean): void;
-  /** Nudges the pill window by a screen-pixel delta — the renderer drives the
-   *  drag itself (rather than a native `-webkit-app-region`) so the pill keeps
-   *  its own cursor and the drag can't fight the click-through capture. */
-  movePillBy(dx: number, dy: number): void;
+  /** Whether the pill is docked flush against a physical MacBook notch (vs. a
+   *  standalone rounded pill on non-notched hardware), and the notch's own
+   *  pixel dimensions when it is. The renderer needs the real numbers (not
+   *  just the boolean) to animate the idle shape to an exact pixel target —
+   *  animating to a `"100%"` CSS size instead would resolve against the
+   *  window's *current* bounds each frame, which is wrong while the native
+   *  window's own shrink is deliberately deferred past the collapse
+   *  animation (see COLLAPSE_ANIMATION_MS in main.ts). */
+  getNotchMode(): Promise<{ hasNotch: boolean; width: number; height: number }>;
   onMenuToggleSidebar(listener: () => void): () => void;
   onMenuShowKeyboardShortcuts(listener: () => void): () => void;
   /** The gesture that toggles dictation from any app. */

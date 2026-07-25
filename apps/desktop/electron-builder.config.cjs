@@ -58,12 +58,17 @@ module.exports = {
     entitlements: "build/entitlements.mac.plist",
     entitlementsInherit: "build/entitlements.mac.plist",
     notarize,
-    // Bundles the release build of native/speechd so the packaged app is
-    // self-contained — build it first with "bun run speechd:build:release".
+    // Bundles the release build of native/speechd and native/notch-geometry so
+    // the packaged app is self-contained — build them first with
+    // "bun run speechd:build:release" and "bun run notch:build:release".
     extraResources: [
       {
         from: "../../native/speechd/.build/release/murmur-speechd",
         to: "murmur-speechd/murmur-speechd",
+      },
+      {
+        from: "../../native/notch-geometry/.build/release/murmur-notch-geometry",
+        to: "murmur-notch-geometry/murmur-notch-geometry",
       },
       // The renderer is read from process.resourcesPath/renderer (see
       // app-window.ts), i.e. Contents/Resources/renderer — so it must ship as
@@ -74,7 +79,10 @@ module.exports = {
         filter: ["**/*"],
       },
     ],
-    binaries: ["Contents/Resources/murmur-speechd/murmur-speechd"],
+    binaries: [
+      "Contents/Resources/murmur-speechd/murmur-speechd",
+      "Contents/Resources/murmur-notch-geometry/murmur-notch-geometry",
+    ],
   },
   dmg: {
     background: "build/dmg-background.png",

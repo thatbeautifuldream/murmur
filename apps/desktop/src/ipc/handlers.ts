@@ -3,6 +3,7 @@ import { IpcChannels, type ActivationShortcut, type ModesConfig, type Theme } fr
 import { startDictation, stopDictation } from "../dictation";
 import { changeActivationShortcut } from "../activation-shortcut";
 import { getActivationShortcut, getModes, setModes } from "../settings-store";
+import { getCachedNotchGeometry } from "../notch-geometry-manager";
 import {
   clearTranscriptHistory,
   deleteTranscriptHistoryEntry,
@@ -37,20 +38,20 @@ export function registerIpcHandlers(): void {
 
   // The pill window ignores the mouse while idle (so clicks pass through); the
   // renderer flips this on/off as the cursor enters/leaves the pill so it stays
-  // clickable and draggable without capturing the empty canvas around it.
+  // clickable without capturing the empty canvas around it.
   ipcMain.on(IpcChannels.WINDOW_SET_PILL_INTERACTIVE, (event, interactive: boolean) => {
     BrowserWindow.fromWebContents(event.sender)?.setIgnoreMouseEvents(!interactive, {
       forward: true,
     });
   });
 
-  // The renderer drives the pill drag itself and streams screen-pixel deltas;
-  // the "move" listener in main.ts records the new position as the pill anchor.
-  ipcMain.on(IpcChannels.WINDOW_MOVE_PILL, (event, dx: number, dy: number) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (!window) return;
-    const { x, y, width, height } = window.getBounds();
-    window.setBounds({ x: Math.round(x + dx), y: Math.round(y + dy), width, height });
+  ipcMain.handle(IpcChannels.WINDOW_GET_NOTCH_MODE, () => {
+    const geometry = getCachedNotchGeometry();
+    return {
+      hasNotch: geometry?.hasNotch ?? false,
+      width: geometry?.hasNotch ? geometry.notchWidth : 0,
+      height: geometry?.hasNotch ? geometry.notchHeight : 0,
+    };
   });
 
   ipcMain.handle(IpcChannels.GET_APP_VERSION, () => app.getVersion());

@@ -444,6 +444,17 @@
     0 0 0 1px color-mix(in srgb, var(--foreground) 8%, transparent),
     0 1px 2px color-mix(in srgb, black 10%, transparent),
     0 6px 14px -8px color-mix(in srgb, black 30%, transparent);
+
+  /* Flat pure black, deliberately not theme-dependent (no `.dark` override
+   * below) — used only when the pill is docked against a physical notch
+   * (see routes/index.tsx `notchMode`), where it has to match the real
+   * hardware bezel's color exactly regardless of the app's light/dark theme,
+   * or it would clash right where it's closest to the real notch. No
+   * sheen/gradient either, for the same reason. No shadow either — it's a
+   * flat black pill on a window with no other chrome, so a shadow has
+   * nothing but the desktop to read against and just looks smudgy. */
+  --pill-bg-notch: #000;
+  --pill-shadow-notch: none;
 }
 
 .dark {
