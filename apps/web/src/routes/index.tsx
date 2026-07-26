@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { DictationStatus } from "@app/contracts";
 import { getDesktopBridge, isDesktop } from "@/desktopBridge";
 import { MicrophoneWaveform } from "@/components/ui/waveform";
+import { AgentMarkdown } from "@/components/ui/agent-markdown";
 import { useAgent } from "@/hooks/use-agent";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -115,6 +116,9 @@ function DictationRoute() {
   const agentListening = agent.status === "listening";
   const expanded = listening || processing || agentActive;
   const captionText = agentActive ? agent.text : partialText;
+  // Only the agent writes markdown; a dictation partial is raw speech and is
+  // left centered as plain text.
+  const captionIsMarkdown = agentActive && agent.text.length > 0;
   const reduceMotion = useReducedMotion();
   const captionRef = useRef<HTMLDivElement | null>(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
@@ -329,7 +333,8 @@ function DictationRoute() {
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, filter: "blur(2px)" }}
             transition={reduceMotion ? { duration: 0 } : { duration: 0.15, ease: "easeInOut" }}
             className={cn(
-              "max-h-56 max-w-72 overflow-y-auto whitespace-pre-wrap break-words rounded-2xl squircle px-3 py-2 text-center text-xs",
+              "max-h-56 max-w-72 overflow-y-auto break-words rounded-2xl squircle px-3 py-2 text-xs",
+              captionIsMarkdown ? "text-left" : "whitespace-pre-wrap text-center",
               agentActive && "ring-1 ring-inset ring-blue-400/60",
             )}
             style={{
@@ -339,7 +344,16 @@ function DictationRoute() {
               color: notchMode ? "white" : undefined,
             } as React.CSSProperties}
           >
-            {captionText}
+            {captionIsMarkdown ? (
+              <AgentMarkdown
+                animating={agent.status === "thinking" || agent.status === "speaking"}
+                dark={notchMode}
+              >
+                {captionText}
+              </AgentMarkdown>
+            ) : (
+              captionText
+            )}
           </motion.div>
         )}
       </AnimatePresence>

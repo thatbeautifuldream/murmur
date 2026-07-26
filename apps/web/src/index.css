@@ -2,6 +2,10 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* Streamdown ships prebuilt markup with Tailwind classes, so its dist output
+ * has to be scanned or the rendered markdown comes out unstyled. */
+@source "../node_modules/streamdown/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));
 @custom-variant fixed (&:is(.layout-fixed *));
 
@@ -470,6 +474,49 @@
     0 0 0 1px color-mix(in srgb, white 10%, transparent),
     0 1px 2px color-mix(in srgb, black 40%, transparent),
     0 6px 16px -8px color-mix(in srgb, black 50%, transparent);
+}
+
+/* Agent markdown inside the pill caption. Streamdown's defaults are sized for
+ * a full-width chat column; the caption is 288px wide at text-xs, so headings
+ * are flattened to bold body text and every vertical rhythm is tightened —
+ * otherwise a two-line reply pushes the pill past its max height. Wide
+ * children (code, tables) scroll inside themselves rather than widening the
+ * pill. */
+.agent-markdown {
+  font-size: inherit;
+  line-height: 1.45;
+}
+.agent-markdown > :first-child {
+  margin-block-start: 0;
+}
+.agent-markdown > :last-child {
+  margin-block-end: 0;
+}
+.agent-markdown :is(p, ul, ol, blockquote, pre, table) {
+  margin-block: 0.35rem;
+}
+.agent-markdown [data-streamdown^="heading-"] {
+  font-size: inherit;
+  font-weight: 600;
+  margin-block: 0.4rem 0.2rem;
+}
+.agent-markdown :is([data-streamdown="ordered-list"], [data-streamdown="unordered-list"]) {
+  padding-inline-start: 1.1rem;
+}
+.agent-markdown [data-streamdown="list-item"] {
+  margin-block: 0.1rem;
+}
+.agent-markdown [data-streamdown="inline-code"] {
+  font-size: 0.9em;
+  padding-inline: 0.2em;
+}
+.agent-markdown :is([data-streamdown="code-block"], [data-streamdown="table-wrapper"]) {
+  max-width: 100%;
+  overflow-x: auto;
+  font-size: 0.85em;
+}
+.agent-markdown [data-streamdown="code-block"] pre {
+  padding: 0.5rem;
 }
 
 @layer base {
