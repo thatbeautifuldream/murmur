@@ -214,14 +214,20 @@ export async function sendAgentPrompt(text: string): Promise<void> {
     const activeSession = await ensureSession();
     await activeSession.prompt(text);
   } catch (error) {
-    console.error("murmur: agent prompt failed", error);
     speechStreamer = undefined;
+    // A cancelled turn surfaces here as a rejected `prompt()`; that's the user
+    // getting what they asked for, not a failure to report as one.
+    if (generation !== speechGeneration) return;
+    console.error("murmur: agent prompt failed", error);
     setStatus("error");
     return;
   }
 
   speechStreamer.end();
   speechStreamer = undefined;
+  // Cancelled mid-turn: the reply that did arrive stays on screen, but nothing
+  // further gets spoken and the status is already back to idle.
+  if (generation !== speechGeneration) return;
   broadcastMessageComplete(responseBuffer.trim());
 
   await speechQueue;
@@ -241,6 +247,41 @@ export async function abortAgentTurn(): Promise<void> {
     // best effort — speechd may not be running
   }
   setStatus("idle");
+}
+
+/** Stops listening and throws the transcript away instead of prompting with
+ *  it — the escape hatch for a mis-fired shortcut. */
+async function discardAgentListening(): Promise<void> {
+  try {
+    await fetch(`${SPEECHD_URL}/stop`, { method: "POST" });
+  } catch {
+    // best effort — speechd may not be running
+  }
+  setStatus("idle");
+}
+
+/** What Esc does, which depends on what the agent is currently doing. The one
+ *  rule is that Esc always backs out of the current step and never destroys
+ *  something the user might still want:
+ *
+ *  - a pending tool approval is denied (Esc on a confirmation means "no"), and
+ *    the turn carries on so the agent can respond to the refusal;
+ *  - while listening, the recording is dropped rather than sent — otherwise
+ *    the only way out of a mis-fired shortcut is to send the transcript;
+ *  - while thinking or speaking, the turn and the audio both stop, but the
+ *    reply already on screen stays there to be read. */
+export async function cancelAgentTurn(): Promise<void> {
+  if (pendingApprovals.size > 0) {
+    for (const id of [...pendingApprovals.keys()]) respondToolApproval(id, false);
+    return;
+  }
+  if (status === "listening") {
+    await discardAgentListening();
+    return;
+  }
+  if (status === "thinking" || status === "speaking") {
+    await abortAgentTurn();
+  }
 }
 
 export function resetAgentConversation(): void {

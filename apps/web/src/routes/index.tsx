@@ -119,6 +119,18 @@ function DictationRoute() {
   // Only the agent writes markdown; a dictation partial is raw speech and is
   // left centered as plain text.
   const captionIsMarkdown = agentActive && agent.text.length > 0;
+  // Esc is a global shortcut armed only while the agent is busy (see
+  // setAgentCancelShortcutEnabled in the main process), so it's undiscoverable
+  // without saying so — and what it does depends on the step it interrupts.
+  const cancelHint = agent.pendingApproval
+    ? "to deny"
+    : agent.status === "listening"
+      ? "to cancel"
+      : agent.status === "speaking"
+        ? "to stop speaking"
+        : agent.status === "thinking"
+          ? "to stop"
+          : null;
   const reduceMotion = useReducedMotion();
   const captionRef = useRef<HTMLDivElement | null>(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
@@ -397,6 +409,36 @@ function DictationRoute() {
                 Approve
               </Button>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {cancelHint && (
+          <motion.div
+            key="cancel-hint"
+            initial={reduceMotion ? false : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.15, ease: "easeOut" }}
+            className="flex items-center gap-1.5 rounded-full squircle py-1 pr-2 pl-1 text-[0.6875rem]"
+            style={
+              {
+                WebkitAppRegion: "no-drag",
+                background: notchMode ? "var(--pill-bg-notch)" : "var(--pill-bg-expanded)",
+                boxShadow: notchMode ? "var(--pill-shadow-notch)" : "var(--pill-shadow-expanded)",
+                color: notchMode ? "white" : undefined,
+              } as React.CSSProperties
+            }
+          >
+            <kbd
+              className={cn(
+                "rounded-sm px-1 font-sans",
+                notchMode ? "bg-white/15" : "bg-black/10 dark:bg-white/15",
+              )}
+            >
+              esc
+            </kbd>
+            <span className="opacity-70">{cancelHint}</span>
           </motion.div>
         )}
       </AnimatePresence>

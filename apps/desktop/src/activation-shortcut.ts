@@ -1,7 +1,7 @@
 import { globalShortcut } from "electron";
 import type { ActivationShortcut, SetActivationShortcutResult } from "@app/contracts";
 import { toggleDictation } from "./dictation";
-import { toggleAgentMode } from "./agent-session";
+import { cancelAgentTurn, toggleAgentMode } from "./agent-session";
 import {
   disableOptionTap,
   enableOptionTap,
@@ -173,4 +173,26 @@ export function changeAgentShortcut(shortcut: ActivationShortcut): SetActivation
 
 export function teardownAgentShortcut(): void {
   teardownAgentShortcutInternal();
+  setAgentCancelShortcutEnabled(false);
+}
+
+let cancelShortcutRegistered = false;
+
+/** Arms Esc as a global cancel while the agent is busy, and disarms it the
+ *  moment it goes idle.
+ *
+ *  Esc has to be global: the pill is a non-focusable overlay (see
+ *  `app.dock.hide()` and `setIgnoreMouseEvents` in main.ts), so a renderer
+ *  keydown would never fire while the user is working in another app — which
+ *  is the entire situation this exists for. The flip side is that a global Esc
+ *  is swallowed app-wide, so it stays registered only for the seconds the
+ *  agent is actually listening, thinking, or speaking, and never while idle. */
+export function setAgentCancelShortcutEnabled(enabled: boolean): void {
+  if (enabled === cancelShortcutRegistered) return;
+  if (enabled) {
+    cancelShortcutRegistered = globalShortcut.register("Escape", () => void cancelAgentTurn());
+    return;
+  }
+  globalShortcut.unregister("Escape");
+  cancelShortcutRegistered = false;
 }

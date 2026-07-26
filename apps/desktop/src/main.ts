@@ -6,6 +6,7 @@ import type { DictationStatus } from "@app/contracts";
 import {
   initActivationShortcut,
   initAgentShortcut,
+  setAgentCancelShortcutEnabled,
   teardownActivationShortcut,
   teardownAgentShortcut,
 } from "./activation-shortcut";
@@ -305,10 +306,13 @@ function bootstrap(): void {
       }
       installApplicationMenu();
     });
-    onAgentStatusChanged(() => {
+    onAgentStatusChanged((agentStatus) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         schedulePillBounds(mainWindow, isPillExpandedForAnyStatus());
       }
+      setAgentCancelShortcutEnabled(
+        agentStatus === "listening" || agentStatus === "thinking" || agentStatus === "speaking",
+      );
     });
     onAgentApprovalPendingChanged((pending) => {
       approvalPending = pending;
