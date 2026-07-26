@@ -8,6 +8,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { IpcChannels, SPEECHD_URL, type AgentStatus, type AgentToolApprovalRequest } from "@app/contracts";
 import { getAgentConfig } from "./settings-store";
+import { SpeechStreamer } from "./speech-stream";
 
 // `@earendil-works/pi-coding-agent` is ESM-only (its package.json `exports`
 // has no `require` condition), but the desktop main process is bundled to
@@ -32,6 +33,14 @@ const statusListeners = new Set<(status: AgentStatus) => void>();
 const approvalListeners = new Set<(pending: boolean) => void>();
 const pendingApprovals = new Map<string, (approved: boolean) => void>();
 let responseBuffer = "";
+let speechStreamer: SpeechStreamer | undefined;
+/** Bumped by every barge-in and every new turn; speech work carrying a stale
+ *  generation is dropped instead of being spoken over the next turn. */
+let speechGeneration = 0;
+/** Serializes the /speak posts so chunks reach speechd in the order they were
+ *  produced — the daemon appends to its utterance queue, so an out-of-order
+ *  arrival would be spoken out of order. */
+let speechQueue: Promise<void> = Promise.resolve();
 
 function setStatus(next: AgentStatus): void {
   status = next;
@@ -145,6 +154,9 @@ async function ensureSession(): Promise<AgentSession> {
     if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
       responseBuffer += event.assistantMessageEvent.delta;
       broadcastTextDelta(event.assistantMessageEvent.delta);
+      // Only `text_delta` feeds speech — `thinking_delta` is deliberately not
+      // subscribed to, so reasoning is never read aloud.
+      speechStreamer?.push(event.assistantMessageEvent.delta);
     }
   });
 
@@ -157,39 +169,71 @@ export function initAgentSessionManager(): void {
   // never used this run.
 }
 
-/** Sends `text` as a prompt, waits for the full response, then speaks it back
- *  once via speechd's /speak (v1 speaks per-turn, not per-sentence-chunk). */
+function enqueueSpeech(chunk: string, generation: number): void {
+  speechQueue = speechQueue.then(async () => {
+    if (generation !== speechGeneration) return;
+    try {
+      await fetch(`${SPEECHD_URL}/speak?${new URLSearchParams({ text: chunk }).toString()}`, {
+        method: "POST",
+      });
+    } catch (error) {
+      console.error("murmur: speak request failed", error);
+    }
+  });
+}
+
+/** Resolves once speechd has drained its utterance queue, so `speaking` lasts
+ *  as long as the audio does rather than ending when the last chunk is posted. */
+async function waitForSpeechToFinish(generation: number): Promise<void> {
+  while (generation === speechGeneration) {
+    try {
+      const response = await fetch(`${SPEECHD_URL}/speak/status`);
+      const body = (await response.json()) as { speaking?: string };
+      if (body.speaking !== "true") return;
+    } catch {
+      return; // speechd gone — don't strand the UI in `speaking`
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+}
+
+/** Sends `text` as a prompt and speaks the reply as it streams: each sentence
+ *  is handed to speechd the moment it is complete, so the agent starts talking
+ *  while the model is still writing instead of after the whole turn. */
 export async function sendAgentPrompt(text: string): Promise<void> {
   setStatus("thinking");
   responseBuffer = "";
+  const generation = ++speechGeneration;
+  speechStreamer = new SpeechStreamer((chunk) => {
+    if (generation !== speechGeneration) return;
+    if (status !== "speaking") setStatus("speaking");
+    enqueueSpeech(chunk, generation);
+  });
+
   try {
     const activeSession = await ensureSession();
     await activeSession.prompt(text);
   } catch (error) {
     console.error("murmur: agent prompt failed", error);
+    speechStreamer = undefined;
     setStatus("error");
     return;
   }
-  const reply = responseBuffer.trim();
-  broadcastMessageComplete(reply);
-  if (!reply) {
-    setStatus("idle");
-    return;
-  }
-  setStatus("speaking");
-  try {
-    await fetch(`${SPEECHD_URL}/speak?${new URLSearchParams({ text: reply }).toString()}`, {
-      method: "POST",
-    });
-  } catch (error) {
-    console.error("murmur: speak request failed", error);
-  }
-  setStatus("idle");
+
+  speechStreamer.end();
+  speechStreamer = undefined;
+  broadcastMessageComplete(responseBuffer.trim());
+
+  await speechQueue;
+  await waitForSpeechToFinish(generation);
+  if (generation === speechGeneration) setStatus("idle");
 }
 
 /** Aborts an in-flight turn and any playing speech — used when the agent
  *  shortcut is tapped again mid-`thinking`/`speaking` (barge-in). */
 export async function abortAgentTurn(): Promise<void> {
+  speechGeneration += 1;
+  speechStreamer = undefined;
   await session?.abort();
   try {
     await fetch(`${SPEECHD_URL}/speak/stop`, { method: "POST" });
@@ -203,6 +247,8 @@ export function resetAgentConversation(): void {
   session?.dispose();
   session = undefined;
   responseBuffer = "";
+  speechGeneration += 1;
+  speechStreamer = undefined;
   if (pendingApprovals.size > 0) {
     pendingApprovals.clear();
     setApprovalPending(false);

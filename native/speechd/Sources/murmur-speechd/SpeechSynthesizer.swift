@@ -7,6 +7,12 @@ import AVFoundation
 final class SpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
     private let synthesizer = AVSpeechSynthesizer()
     private lazy var preferredVoice: AVSpeechSynthesisVoice? = Self.pickPreferredVoice()
+    // `synthesizer.isSpeaking` doesn't flip to true synchronously inside
+    // `speak(_:)`, so a client polling /speak/status right after enqueuing the
+    // first chunk of a turn would see "not speaking" and consider the turn
+    // done. Counting enqueued-but-not-finished utterances ourselves closes
+    // that window.
+    private var queued = 0
 
     /// Best on-device English voice, ranked: Alex (en-US premium, gold
     /// standard) > highest-quality installed en-US voice (premium > enhanced
@@ -33,24 +39,37 @@ final class SpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate, @unchecked
         synthesizer.delegate = self
     }
 
+    /// Appends to the utterance queue rather than replacing it — the agent
+    /// streams a reply sentence-by-sentence, so each /speak must continue the
+    /// same spoken turn instead of cutting off the one still playing.
+    /// `/speak/stop` is the only thing that clears the queue.
     func speak(text: String, voiceIdentifier: String? = nil) {
-        stop()
         let utterance = AVSpeechUtterance(string: text)
         if let voiceIdentifier, let voice = AVSpeechSynthesisVoice(identifier: voiceIdentifier) {
             utterance.voice = voice
         } else {
             utterance.voice = preferredVoice
         }
+        queued += 1
         synthesizer.speak(utterance)
     }
 
     func stop() {
+        queued = 0
         if synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
         }
     }
 
     var isSpeaking: Bool {
-        synthesizer.isSpeaking
+        queued > 0 || synthesizer.isSpeaking
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        queued = max(0, queued - 1)
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        queued = max(0, queued - 1)
     }
 }

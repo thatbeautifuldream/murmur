@@ -111,6 +111,8 @@ final class Server {
                 "text": result.text,
                 "audioPath": result.audioPath ?? ""
             ])
+        case ("GET", "/speak/status"):
+            respond(connection, status: 200, body: ["speaking": synthesizer.isSpeaking ? "true" : "false"])
         case ("POST", _) where path.hasPrefix("/speak/stop"):
             synthesizer.stop()
             respond(connection, status: 200, body: ["status": "stopped"])
