@@ -20,11 +20,11 @@ function loadPi() {
   return import("@earendil-works/pi-coding-agent");
 }
 
-// GLM-5.1 on the Z.AI Coding Plan endpoint (api.z.ai/api/coding/paas/v4,
-// provider id "zai" in pi-ai's built-in registry — auth via ZAI_API_KEY or
-// `pi auth` against that provider).
-const DEFAULT_MODEL_PROVIDER = "zai";
-const DEFAULT_MODEL_ID = "glm-5.1";
+// GPT-5.6 Luna on the ChatGPT Codex backend (provider id "openai-codex" in
+// pi-ai's built-in registry — auth via `pi auth` against that provider).
+const DEFAULT_MODEL_PROVIDER = "openai-codex";
+const DEFAULT_MODEL_ID = "gpt-5.6-luna";
+const DEFAULT_THINKING_LEVEL = "low";
 
 let status: AgentStatus = "idle";
 let session: AgentSession | undefined;
@@ -141,6 +141,7 @@ async function ensureSession(): Promise<AgentSession> {
   const { session: created } = await pi.createAgentSession({
     cwd: resolvedCwd,
     model: defaultModel,
+    thinkingLevel: DEFAULT_THINKING_LEVEL,
     modelRuntime,
     resourceLoader,
     // Persist sessions to ~/.pi/agent/sessions/<encoded-cwd>/ so a conversation
